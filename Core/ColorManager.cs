@@ -1,9 +1,20 @@
 using Raylib_cs;
+using System;
 
 namespace EternalFlow.Core;
 
 public class ColorManager
 {
+    // --- КОНСТАНТИ ФАЗИ КОЛЬОРУ ---
+    // Межі того, наскільки довго колір може "затягнутися" (у секундах)
+    private const float MIN_PHASE_DURATION = 15f;
+    private const float MAX_PHASE_DURATION = 30f;
+
+    // Наскільки ріжеться цей час при повному (100%) стресі (0.0 - 1.0)
+    // 0.7f означає, що час скоротиться на 70% (кольори змінюватимуться дуже швидко)
+    private const float MAX_STRESS_TIME_REDUCTION = 0.7f;
+    // ------------------------------
+
     public Color BackgroundColor { get; private set; }
     public float CurrentHue { get; private set; }
     public float CurrentLightness { get; private set; }
@@ -11,10 +22,10 @@ public class ColorManager
     private float targetHue;
     private float startHue;
 
-    private float hueTimer = 2f;
+    private float hueTimer = MIN_PHASE_DURATION;
     private bool isTransitioning = false;
     private float transitionProgress = 0f;
-    private float transitionDuration = 1f; // Динамічний час переходу
+    private float transitionDuration = 1f;
 
     public ColorManager()
     {
@@ -22,13 +33,18 @@ public class ColorManager
         CurrentLightness = 0.9f;
     }
 
-    // Тепер ми приймаємо stress як параметр
     public void Update(PathGenerator path, int screenHeight, float stress, float deltaTime)
     {
-        // 1. ЛОГІКА СТРИБКІВ ВІДТІНКУ (залишається без змін)
+        // ЛОГІКА СТРИБКІВ ВІДТІНКУ ТА ФАЗИ
         if (!isTransitioning)
         {
-            hueTimer -= deltaTime;
+            // Рахуємо множник швидкості часу.
+            // Якщо reduction = 0.7 і stress = 1, дільник = 0.3. Час для кольору йде в 3.3 рази швидше!
+            float timeMultiplier = 1f / (1f - (stress * MAX_STRESS_TIME_REDUCTION));
+
+            // Таймер спадає плавно, але швидше, якщо стрес високий
+            hueTimer -= deltaTime * timeMultiplier;
+
             if (hueTimer <= 0)
             {
                 isTransitioning = true;
@@ -44,6 +60,7 @@ public class ColorManager
         }
         else
         {
+            // Сам перехід між кольорами йде зі своєю швидкістю
             transitionProgress += deltaTime / transitionDuration;
 
             if (transitionProgress >= 1f)
@@ -54,7 +71,8 @@ public class ColorManager
                 CurrentHue = targetHue % 360f;
                 if (CurrentHue < 0) CurrentHue += 360f;
 
-                hueTimer = Random.Shared.NextSingle() * 2f + 3f;
+                // Задаємо новий базовий час фази в межах наших констант
+                hueTimer = Random.Shared.NextSingle() * (MAX_PHASE_DURATION - MIN_PHASE_DURATION) + MIN_PHASE_DURATION;
             }
             else
             {
@@ -63,18 +81,15 @@ public class ColorManager
             }
         }
 
-        // 2. ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ
+        // ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ (залишається без змін)
         float pathY = path.GetPathY(100, screenHeight);
         float normalizedY = Math.Clamp(pathY / screenHeight, 0f, 1f);
 
-        // Базове затемнення = 0.17. При максимальному стресі воно збільшується на 0.3 (стає 0.47)
-        // Тобто в "ямах" фон провалюватиметься від 0.92 аж до 0.45 (це дуже глибокий контрастний колір)
         float darkeningPower = 0.17f + (stress * 0.3f);
         float targetLightness = 0.92f - (normalizedY * darkeningPower);
 
         CurrentLightness += (targetLightness - CurrentLightness) * deltaTime * 0.15f;
 
-        // Нормалізуємо для конвертера
         float finalHue = CurrentHue % 360f;
         if (finalHue < 0) finalHue += 360f;
 
