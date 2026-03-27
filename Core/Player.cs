@@ -8,10 +8,11 @@ namespace EternalFlow.Core;
 public class Player
 {
     public Vector2 Position;
+    public float VelocityY = 0f; // ДОДАНО: Щоб інші класи знали куди ми летимо
 
-    private float baseRadius = 25f;
+    private readonly float baseRadius = 25f;
     private float time = 0f;
-    private float pulseSpeed = 4.0f; // Швидкість пульсу винесена в змінну класу
+    private readonly float pulseSpeed = 4.0f; // Швидкість пульсу винесена в змінну класу
 
     // Клас для частинок шлейфу (Відлуння)
     private class TrailEcho
@@ -21,7 +22,7 @@ public class Player
         public float Radius; // Радіус, який буде трохи рости
     }
 
-    private List<TrailEcho> trail = new();
+    private readonly List<TrailEcho> trail = [];
     private float echoSpawnTimer = 0f;
 
     public Player(int screenHeight)

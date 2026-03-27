@@ -16,6 +16,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
     private readonly Player player = new(GetScreenHeight()); // Додали гравця
     private readonly PlayerController playerController = new(); // Ініціалізуємо контролер
+    private readonly StressManager stressManager = new();
 
     public override void Update()
     {
@@ -34,6 +35,8 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         // КЕРУВАННЯ ГРАВЦЕМ (ТІЛЬКИ W та S)
         playerController.Update(player, deltaTime, screenHeight);
+
+        stressManager.Update(player, path, screenHeight, deltaTime);
 
         path.Update(mockStress);
         colorManager.Update(path, screenHeight, mockStress);
@@ -61,7 +64,11 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         // Інтерфейс
         DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Color.DarkGray);
-        DrawTextEx(font, $"Стрес (Стрілки Вгору/Вниз): {mockStress:F2}", new Vector2(20, 70), 30, 2, mockStress > 0.5f ? Color.Red : Color.DarkGray);
+        // Ручний стрес (стрілочки) - він зараз керує візуалом
+        DrawTextEx(font, $"РУЧНИЙ СТРЕС (Взуал): {mockStress:F2}", new Vector2(20, 70), 30, 2, mockStress > 0.5f ? Color.Red : Color.DarkGray);
+        // Новий розумний стрес (поки тільки цифра)
+        DrawTextEx(font, $"РЕАЛЬНИЙ СТРЕС (Тест): {stressManager.CurrentStress:F2}", new Vector2(20, 110), 30, 2, stressManager.CurrentStress > 0.5f ? Color.Orange : Color.Lime);
+
         EndDrawing();
     }
 }

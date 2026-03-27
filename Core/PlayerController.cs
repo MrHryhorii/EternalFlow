@@ -4,8 +4,6 @@ namespace EternalFlow.Core;
 
 public class PlayerController
 {
-    private float velocityY = 0f;
-
     // Нові, набагато "м'якші" налаштування фізики:
     private readonly float acceleration = 1200f; // Було 2500. Тепер зривається з місця повільніше.
     private readonly float maxSpeed = 700f;      // Трохи збільшили максималку, щоб компенсувати повільний розгін.
@@ -23,29 +21,29 @@ public class PlayerController
         if (moveInput != 0f)
         {
             // Плавний розгін
-            velocityY += moveInput * acceleration * deltaTime;
-            velocityY = Math.Clamp(velocityY, -maxSpeed, maxSpeed);
+            player.VelocityY += moveInput * acceleration * deltaTime;
+            player.VelocityY = Math.Clamp(player.VelocityY, -maxSpeed, maxSpeed);
         }
         else
         {
             // Дуже тягуче гальмування
-            velocityY = Lerp(velocityY, 0f, drag * deltaTime);
+            player.VelocityY = Lerp(player.VelocityY, 0f, drag * deltaTime);
         }
 
         // Рухаємо гравця
-        player.Position.Y += velocityY * deltaTime;
+        player.Position.Y += player.VelocityY * deltaTime;
 
         // ПРУЖНЕ ЗІТКНЕННЯ З КРАЯМИ ЕКРАНУ
         float padding = 30f; // Розмір мембрани
         if (player.Position.Y < padding)
         {
             player.Position.Y = padding; // Виштовхуємо, щоб не "прилипав"
-            velocityY = -velocityY * bounceFactor; // Інвертуємо швидкість (відскок вниз)
+            player.VelocityY = -player.VelocityY * bounceFactor; // Інвертуємо швидкість (відскок вниз)
         }
         else if (player.Position.Y > screenHeight - padding)
         {
             player.Position.Y = screenHeight - padding;
-            velocityY = -velocityY * bounceFactor; // Відскок вгору
+            player.VelocityY = -player.VelocityY * bounceFactor; // Відскок вгору
         }
     }
 

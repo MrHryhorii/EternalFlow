@@ -16,7 +16,7 @@ class Program
         // ВІДВ'ЯЗУЄМО клавішу Esc від автоматичного закриття гри!
         SetExitKey(KeyboardKey.Null);
 
-        List<int> codepoints = new();
+        List<int> codepoints = [];
         for (int i = 32; i < 127; i++) codepoints.Add(i); // Латиниця + знаки
         for (int i = 1024; i < 1280; i++) codepoints.Add(i); // Кирилиця
 
