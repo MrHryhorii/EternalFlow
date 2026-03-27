@@ -13,9 +13,8 @@ public class PathGenerator
     private float internalStress = 0f;
 
     // Тепер Update приймає поточний стрес від гравця/сцени
-    public void Update(float currentStress)
+    public void Update(float currentStress, float deltaTime)
     {
-        float deltaTime = Raylib.GetFrameTime();
         time += deltaTime * scrollSpeed;
 
         // Плавно наближаємо внутрішній стрес до цільового

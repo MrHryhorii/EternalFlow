@@ -5,12 +5,25 @@ namespace EternalFlow.Core;
 
 public class FloatingShapes
 {
-    // Перелік можливих перетворень
-    public enum MutationType
+    // --- КОНСТАНТИ НАЛАШТУВАННЯ ---
+
+    // Шанси кипіння (%) для різних стилів
+    private const int CHANCE_TO_BOIL_STANDARD = 20;
+    private const int CHANCE_TO_BOIL_ASYMMETRIC = 20;
+    private const int CHANCE_TO_BOIL_SPIKY = 40;
+
+    // Сила кипіння (амплітуда вібрації). 
+    // 0.05f - легке тремтіння, 0.12f - стандарт, 0.25f - агресивний хаос.
+    private const float BOIL_FORCE = 0.05f;
+
+    private const int TOTAL_SHAPE_COUNT = 22;
+    // ------------------------------------------
+
+    private enum ShapeStyle
     {
-        CrispGeometric, // Ідеально рівні фігури (трикутник, квадрат і т.д.)
-        NervousPolygon, // Багатокутник, який вібрує і ламається
-        SpikyStar       // Колюча зірка з гострими променями
+        Standard,
+        Asymmetric,
+        Spiky
     }
 
     private class FloatingShape
@@ -19,38 +32,55 @@ public class FloatingShapes
         public float Radius;
         public float Speed;
         public float HueOffset;
-
-        public int TargetSides;       // 3 - трикутник, 4 - квадрат/ромб і т.д.
+        public int TargetSides;
         public float Rotation;
         public float RotSpeed;
-        public MutationType Mutation; // Тип мутації цієї конкретної фігури
+
+        public ShapeStyle Style;
+        public float AsymmetryFactor;
+        public float BoilIntensity;
+        public bool WillBoil;
     }
 
     private readonly List<FloatingShape> shapes = [];
+    private float internalTime = 0f;
 
-    public FloatingShapes(int screenWidth, int screenHeight, int shapeCount = 15)
+    public FloatingShapes(int screenWidth, int screenHeight, int shapeCount = TOTAL_SHAPE_COUNT)
     {
         for (int i = 0; i < shapeCount; i++)
         {
+            int sides = Random.Shared.Next(3, 7);
+            ShapeStyle style = (ShapeStyle)Random.Shared.Next(0, 3);
+
+            int roll = Random.Shared.Next(100);
+            bool shouldBoil = style switch
+            {
+                ShapeStyle.Standard => roll < CHANCE_TO_BOIL_STANDARD,
+                ShapeStyle.Asymmetric => roll < CHANCE_TO_BOIL_ASYMMETRIC,
+                ShapeStyle.Spiky => roll < CHANCE_TO_BOIL_SPIKY,
+                _ => false
+            };
+
             shapes.Add(new FloatingShape
             {
                 Position = new Vector2(Random.Shared.Next(0, screenWidth), Random.Shared.Next(0, screenHeight)),
-                Radius = Random.Shared.Next(30, 120),
-                Speed = Random.Shared.NextSingle() * 1.5f + 0.5f,
+                Radius = Random.Shared.Next(35, 85),
+                Speed = Random.Shared.NextSingle() * 1.0f + 0.5f,
                 HueOffset = Random.Shared.Next(-20, 20),
-                TargetSides = Random.Shared.Next(3, 7), // Від трикутника до гексагона
+                TargetSides = sides,
                 Rotation = Random.Shared.NextSingle() * MathF.PI * 2f,
-                RotSpeed = (Random.Shared.NextSingle() - 0.5f) * 1.5f,
-
-                // Випадковим чином призначаємо "ген" мутації
-                Mutation = (MutationType)Random.Shared.Next(0, 3)
+                RotSpeed = (Random.Shared.NextSingle() - 0.5f) * 1.2f,
+                Style = style,
+                AsymmetryFactor = Random.Shared.NextSingle() * 0.4f + 0.4f,
+                BoilIntensity = Random.Shared.NextSingle() * 5f + 10f,
+                WillBoil = shouldBoil
             });
         }
     }
 
-    public void Update()
+    public void Update(float deltaTime)
     {
-        float deltaTime = Raylib.GetFrameTime();
+        internalTime += deltaTime;
         int screenWidth = Raylib.GetScreenWidth();
         int screenHeight = Raylib.GetScreenHeight();
 
@@ -67,7 +97,7 @@ public class FloatingShapes
         }
     }
 
-    public void Draw(float baseHue, float baseLightness, float stress, float time)
+    public void Draw(float baseHue, float baseLightness, float stress)
     {
         foreach (var shape in shapes)
         {
@@ -79,32 +109,32 @@ public class FloatingShapes
             float lightness = baseLightness - 0.06f - (stress * 0.15f);
 
             Color shapeColor = ColorConverter.OklchToColor(lightness, chroma, finalHue);
-            shapeColor.A = (byte)(80 + stress * 120);
+            shapeColor.A = (byte)(70 + stress * 130);
 
-            DrawMorphingShape(shape, shapeColor, stress, time);
+            DrawMorphingShape(shape, shapeColor, stress, internalTime);
         }
     }
 
     private static void DrawMorphingShape(FloatingShape shape, Color color, float stress, float time)
     {
-        int points = 60; // Достатньо для ідеальних прямих ліній та плавних кривих
+        int points = 120;
         float angleStep = MathF.PI * 2f / points;
 
         for (int i = 0; i < points; i++)
         {
-            float angle1 = i * angleStep;
-            float angle2 = (i + 1) * angleStep;
+            float a1 = i * angleStep;
+            float a2 = (i + 1) * angleStep;
 
-            float r1 = GetMorphedRadius(angle1, shape, stress, time);
-            float r2 = GetMorphedRadius(angle2, shape, stress, time);
+            float r1 = GetMorphedRadius(a1, shape, stress, time);
+            float r2 = GetMorphedRadius(a2, shape, stress, time);
 
             Vector2 p1 = new(
-                shape.Position.X + MathF.Cos(angle1 + shape.Rotation) * r1,
-                shape.Position.Y + MathF.Sin(angle1 + shape.Rotation) * r1
+                shape.Position.X + MathF.Cos(a1 + shape.Rotation) * r1,
+                shape.Position.Y + MathF.Sin(a1 + shape.Rotation) * r1
             );
             Vector2 p2 = new(
-                shape.Position.X + MathF.Cos(angle2 + shape.Rotation) * r2,
-                shape.Position.Y + MathF.Sin(angle2 + shape.Rotation) * r2
+                shape.Position.X + MathF.Cos(a2 + shape.Rotation) * r2,
+                shape.Position.Y + MathF.Sin(a2 + shape.Rotation) * r2
             );
 
             Raylib.DrawTriangle(shape.Position, p2, p1, color);
@@ -113,42 +143,57 @@ public class FloatingShapes
 
     private static float GetMorphedRadius(float angle, FloatingShape shape, float stress, float time)
     {
-        // 1. БАЗА (СПОКІЙ): М'яка, дихаюча амеба
-        float softNoise = MathF.Sin(angle * 3f + time * 1.5f + shape.HueOffset) * (shape.Radius * 0.08f);
-        float blobRadius = shape.Radius + softNoise;
+        float softBreathing = MathF.Sin(angle * 2f + time * 1.5f) * (shape.Radius * 0.05f);
+        float baseR = shape.Radius + softBreathing;
 
-        // Математика для створення рівних граней багатокутника
-        float segmentAngle = MathF.PI * 2f / shape.TargetSides;
-        float halfSegment = segmentAngle / 2f;
-        float localAngle = angle % segmentAngle;
-        float polyRadius = shape.Radius * MathF.Cos(halfSegment) / MathF.Cos(localAngle - halfSegment);
+        float targetR = baseR;
 
-        float stressRadius = blobRadius;
-
-        // 2. МУТАЦІЯ (СТРЕС): Вибираємо форму залежно від типу фігури
-        switch (shape.Mutation)
+        switch (shape.Style)
         {
-            case MutationType.CrispGeometric:
-                // Ідеально гострі трикутники, квадрати, ромби (ніякої вібрації)
-                stressRadius = polyRadius;
+            case ShapeStyle.Standard:
+                targetR = GetPolyRadius(angle, shape.TargetSides, shape.Radius);
                 break;
 
-            case MutationType.NervousPolygon:
-                // Геометрія, яка зловісно вібрує по краях
-                float harshFreq = shape.TargetSides * 2f;
-                float harshNoise = MathF.Sin(angle * harshFreq - time * 10f) * (shape.Radius * 0.15f);
-                stressRadius = polyRadius + harshNoise;
+            case ShapeStyle.Asymmetric:
+                if (shape.TargetSides == 3)
+                {
+                    float triShift = MathF.Sin(angle) * shape.AsymmetryFactor * stress;
+                    targetR = GetPolyRadius(angle + triShift, 3, shape.Radius);
+                }
+                else if (shape.TargetSides == 4)
+                {
+                    targetR = GetPolyRadius(angle, 4, shape.Radius);
+                    targetR *= (1f + MathF.Abs(MathF.Cos(angle)) * (shape.AsymmetryFactor * 1.5f * stress));
+                }
+                else
+                {
+                    targetR = GetPolyRadius(angle, shape.TargetSides, shape.Radius);
+                    targetR += MathF.Sin(angle * 2f) * (shape.Radius * 0.2f * stress);
+                }
                 break;
 
-            case MutationType.SpikyStar:
-                // Агресивна колючка з гострими променями
-                float starNoise = MathF.Cos(angle * shape.TargetSides) * (shape.Radius * 0.5f);
-                stressRadius = shape.Radius + starNoise;
+            case ShapeStyle.Spiky:
+                float spikes = MathF.Cos(angle * (shape.TargetSides * 2)) * (shape.Radius * 0.5f);
+                targetR = shape.Radius + spikes;
                 break;
         }
 
-        // 3. ПЛАВНИЙ ПЕРЕХІД (Lerp) між спокоєм і стресом
-        float t = stress * stress * (3f - 2f * stress); // SmoothStep
-        return blobRadius + (stressRadius - blobRadius) * t;
+        float transition = stress * stress * (3f - 2f * stress);
+        float resultR = baseR + (targetR - baseR) * transition;
+
+        if (shape.WillBoil)
+        {
+            // Використовуємо константу BOIL_FORCE
+            float boilNoise = MathF.Sin(angle * shape.BoilIntensity + time * 20f) * (shape.Radius * BOIL_FORCE * stress);
+            return resultR + boilNoise;
+        }
+
+        return resultR;
+    }
+
+    private static float GetPolyRadius(float angle, int sides, float radius)
+    {
+        float segment = MathF.PI * 2f / sides;
+        return radius * MathF.Cos(MathF.PI / sides) / MathF.Cos((angle % segment) - (segment / 2f));
     }
 }

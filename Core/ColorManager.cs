@@ -23,10 +23,8 @@ public class ColorManager
     }
 
     // Тепер ми приймаємо stress як параметр
-    public void Update(PathGenerator path, int screenHeight, float stress)
+    public void Update(PathGenerator path, int screenHeight, float stress, float deltaTime)
     {
-        float deltaTime = Raylib.GetFrameTime();
-
         // 1. ЛОГІКА СТРИБКІВ ВІДТІНКУ (залишається без змін)
         if (!isTransitioning)
         {
