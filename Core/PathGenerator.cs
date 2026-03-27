@@ -1,18 +1,24 @@
 using Raylib_cs;
-using System;
 using System.Numerics;
 
 namespace EternalFlow.Core;
 
 public class PathGenerator
 {
+    // --- КОНСТАНТИ ВСТУПУ ---
+    // Скільки секунд на початку лінія абсолютно пряма
+    private const float INTRO_FLAT_DURATION = 3f;
+
+    // Скільки секунд після цього вона плавно розгойдується до максимуму
+    private const float INTRO_GROWTH_DURATION = 5f;
+    // ------------------------
+
     private float time = 0f;
     private readonly float scrollSpeed = 1.5f;
 
     // Зберігаємо плавний стрес, щоб лінія не розривалася від різких рухів
     private float internalStress = 0f;
 
-    // Тепер Update приймає поточний стрес від гравця/сцени
     public void Update(float currentStress, float deltaTime)
     {
         time += deltaTime * scrollSpeed;
@@ -25,25 +31,26 @@ public class PathGenerator
     {
         float centerY = screenHeight / 2f;
 
-        // 1. ФАЗА ВСТУПУ (Пряма -> Маленькі поштовхи -> Повна крива)
-        // Перші 6 секунд гри розмах росте від 0 до 1
-        float introProgress = Math.Clamp(time / 6f, 0f, 1f);
+        // ФАЗА ВСТУПУ (Пряма -> Маленькі поштовхи -> Повна крива)
+        // Віднімаємо час "прямої" фази. Якщо результат < 0, то прогрес буде 0.
+        float growthTime = time - INTRO_FLAT_DURATION;
+        float introProgress = Math.Clamp(growthTime / INTRO_GROWTH_DURATION, 0f, 1f);
 
         // Використовуємо SmoothStep для дуже м'якого старту
         float introMultiplier = introProgress * introProgress * (3f - 2f * introProgress);
 
-        // 2. ВПЛИВ СТРЕСУ НА РОЗМАХ
+        // ВПЛИВ СТРЕСУ НА РОЗМАХ
         // Якщо стресу немає = 1.0 (як зараз). При повному стресі = 2.5 (дуже широкі гойдалки)
         float amplitudeStressMod = 1f + (internalStress * 1.5f);
 
-        // 3. БАЗОВІ ХВИЛІ
+        // БАЗОВІ ХВИЛІ
         float wave1 = MathF.Sin((x * 0.0015f) + (time * 0.8f)) * 140f;
         float wave2 = MathF.Sin((x * 0.004f) + (time * 1.5f)) * 70f;
 
         float chaosModulator = MathF.Sin(time * 0.3f) * 0.5f + 0.5f;
         float wave3 = MathF.Cos((x * 0.007f) + (time * 2.5f)) * (50f * chaosModulator);
 
-        // 4. НЕРВОВА ВІБРАЦІЯ ЛІНІЇ (Тільки при стресі)
+        // НЕРВОВА ВІБРАЦІЯ ЛІНІЇ (Тільки при стресі)
         // Додаємо дрібну "пилку", яка робить маршрут візуально нестабільним
         float noise = MathF.Sin(x * 0.05f - time * 15f) * (15f * internalStress);
 
