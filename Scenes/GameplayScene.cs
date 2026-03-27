@@ -6,21 +6,16 @@ using EternalFlow.Core;
 
 namespace EternalFlow.Scenes;
 
-public class GameplayScene : Scene
+public class GameplayScene(Game game, Font font) : Scene(game, font)
 {
-    private readonly PathGenerator path;
-    private readonly ColorManager colorManager;
-    private readonly FloatingShapes backgroundShapes;
+    private readonly PathGenerator path = new PathGenerator();
+    private readonly ColorManager colorManager = new ColorManager();
+    private readonly FloatingShapes backgroundShapes = new FloatingShapes(GetScreenWidth(), GetScreenHeight(), 20);
 
     // ТЕСТОВИЙ РЕГУЛЯТОР БЕЗУМСТВА (від 0.0 до 1.0)
     private float mockStress = 0f;
 
-    public GameplayScene(Game game, Font font) : base(game, font)
-    {
-        path = new PathGenerator();
-        colorManager = new ColorManager();
-        backgroundShapes = new FloatingShapes(GetScreenWidth(), GetScreenHeight(), 20);
-    }
+    private readonly Player player = new(GetScreenHeight()); // Додали гравця
 
     public override void Update()
     {
@@ -34,10 +29,13 @@ public class GameplayScene : Scene
         if (IsKeyDown(KeyboardKey.Down) || IsKeyDown(KeyboardKey.S)) mockStress -= 0.5f * GetFrameTime();
         mockStress = Math.Clamp(mockStress, 0f, 1f);
 
+        float deltaTime = GetFrameTime();
         path.Update(mockStress);
         // Передаємо стрес у ColorManager
         colorManager.Update(path, GetScreenHeight(), mockStress);
         backgroundShapes.Update();
+
+        player.Update(deltaTime);
     }
 
     public override void Draw()
@@ -54,6 +52,9 @@ public class GameplayScene : Scene
 
         // Малюємо криву
         path.Draw(screenWidth, screenHeight, colorManager.CurrentHue, mockStress);
+
+        // МАЛЮЄМО ГРАВЦЯ (Зверху лінії)
+        player.Draw();
 
         // Інтерфейс
         DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Color.DarkGray);
