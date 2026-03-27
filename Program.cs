@@ -20,8 +20,10 @@ class Program
         for (int i = 32; i < 127; i++) codepoints.Add(i); // Латиниця + знаки
         for (int i = 1024; i < 1280; i++) codepoints.Add(i); // Кирилиця
 
-        // Додаємо код символу '►' (Black Right-Pointing Pointer)
-        codepoints.Add(9658);
+        // Додаємо наші спецсимволи:
+        codepoints.Add(9658); // ► (трикутник вибору)
+        codepoints.Add(8593); // ↑ (стрілка вгору)
+        codepoints.Add(8595); // ↓ (стрілка вниз)
 
         int[] fontChars = [.. codepoints];
 

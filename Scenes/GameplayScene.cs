@@ -35,7 +35,8 @@ public class GameplayScene : Scene
         mockStress = Math.Clamp(mockStress, 0f, 1f);
 
         path.Update(mockStress);
-        colorManager.Update(path, GetScreenHeight());
+        // Передаємо стрес у ColorManager
+        colorManager.Update(path, GetScreenHeight(), mockStress);
         backgroundShapes.Update();
     }
 

@@ -22,11 +22,12 @@ public class ColorManager
         CurrentLightness = 0.9f;
     }
 
-    public void Update(PathGenerator path, int screenHeight)
+    // Тепер ми приймаємо stress як параметр
+    public void Update(PathGenerator path, int screenHeight, float stress)
     {
         float deltaTime = Raylib.GetFrameTime();
 
-        // 1. ЛОГІКА СТРИБКІВ ВІДТІНКУ
+        // 1. ЛОГІКА СТРИБКІВ ВІДТІНКУ (залишається без змін)
         if (!isTransitioning)
         {
             hueTimer -= deltaTime;
@@ -36,23 +37,15 @@ public class ColorManager
                 transitionProgress = 0f;
                 startHue = CurrentHue;
 
-                // Гарантуємо відчутну зміну: стрибок від 70 до 160 градусів
                 float jumpDelta = Random.Shared.NextSingle() * 90f + 70f;
-
-                // Випадково вибираємо напрямок (вправо чи вліво по колу)
                 if (Random.Shared.Next(2) == 0) jumpDelta = -jumpDelta;
 
                 targetHue = startHue + jumpDelta;
-
-                // ЧАС ПЕРЕХОДУ залежить від відстані. 
-                // Наприклад, швидкість = 90 градусів за секунду
-                float distance = Math.Abs(jumpDelta);
-                transitionDuration = distance / 90f;
+                transitionDuration = Math.Abs(jumpDelta) / 90f;
             }
         }
         else
         {
-            // Рухаємо прогрес залежно від вирахованого часу
             transitionProgress += deltaTime / transitionDuration;
 
             if (transitionProgress >= 1f)
@@ -63,30 +56,30 @@ public class ColorManager
                 CurrentHue = targetHue % 360f;
                 if (CurrentHue < 0) CurrentHue += 360f;
 
-                // Залипаємо на новому кольорі на 3-5 секунд
                 hueTimer = Random.Shared.NextSingle() * 2f + 3f;
             }
             else
             {
-                // SmoothStep для змазаного ривка
                 float t = transitionProgress * transitionProgress * (3f - 2f * transitionProgress);
                 CurrentHue = startHue + (targetHue - startHue) * t;
             }
         }
 
-        // 2. ПЛАВНА СВІТЛОТА ВІД КРИВОЇ
+        // 2. ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ
         float pathY = path.GetPathY(100, screenHeight);
         float normalizedY = Math.Clamp(pathY / screenHeight, 0f, 1f);
-        float targetLightness = 0.92f - (normalizedY * 0.17f);
 
-        // Зменшили множник з 0.5f до 0.15f для максимальної плавності
+        // Базове затемнення = 0.17. При максимальному стресі воно збільшується на 0.3 (стає 0.47)
+        // Тобто в "ямах" фон провалюватиметься від 0.92 аж до 0.45 (це дуже глибокий контрастний колір)
+        float darkeningPower = 0.17f + (stress * 0.3f);
+        float targetLightness = 0.92f - (normalizedY * darkeningPower);
+
         CurrentLightness += (targetLightness - CurrentLightness) * deltaTime * 0.15f;
 
         // Нормалізуємо для конвертера
         float finalHue = CurrentHue % 360f;
         if (finalHue < 0) finalHue += 360f;
 
-        // Конвертуємо в готовий колір фону
         BackgroundColor = ColorConverter.OklchToColor(CurrentLightness, 0.06f, finalHue);
     }
 }
