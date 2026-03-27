@@ -14,8 +14,12 @@ public class PlayerController
     {
         float moveInput = 0f;
 
-        if (Raylib.IsKeyDown(KeyboardKey.W)) moveInput -= 1f;
-        if (Raylib.IsKeyDown(KeyboardKey.S)) moveInput += 1f;
+        // Об'єднуємо кнопки: або W, або Стрілка Вгору
+        bool moveUp = Raylib.IsKeyDown(KeyboardKey.W) || Raylib.IsKeyDown(KeyboardKey.Up);
+        bool moveDown = Raylib.IsKeyDown(KeyboardKey.S) || Raylib.IsKeyDown(KeyboardKey.Down);
+
+        if (moveUp) moveInput -= 1f;
+        if (moveDown) moveInput += 1f;
 
         // Застосовуємо фізику
         if (moveInput != 0f)
