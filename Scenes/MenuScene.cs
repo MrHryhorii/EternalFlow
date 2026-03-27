@@ -61,6 +61,8 @@ public class MenuScene(Game game, Font font) : Scene(game, font)
 
         DrawTextEx(font, "Використовуй ↑ ↓ та ENTER", new Vector2(420, 580), 24, 2, Color.Gray);
 
+        game.DrawTransitionOverlay();
+
         // ВАЖЛИВО: Меню самостійно закриває полотно!
         EndDrawing();
     }

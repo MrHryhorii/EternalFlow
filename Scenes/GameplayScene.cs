@@ -115,6 +115,8 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             DrawTextEx(font, hintText, hintPos, hintSize, 2f, hintColor);
         }
 
+        game.DrawTransitionOverlay();
+
         EndDrawing();
     }
 
