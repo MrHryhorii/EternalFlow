@@ -28,7 +28,7 @@ public class MenuScene(Game game, Font font) : Scene(game, font)
                     game.ChangeScene(new GameplayScene(game, font));
                     break;
                 case 1: // Налаштування
-                    System.Console.WriteLine("Налаштування ще не реалізовані");
+                    game.ChangeScene(new SettingsScene(game, font));
                     break;
                 case 2: // Вийти
                     CloseWindow();
