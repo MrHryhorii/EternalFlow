@@ -66,12 +66,12 @@ public class PathGenerator
         lineColor.A = (byte)Math.Clamp(160 + (stress * 95), 0, 255);
 
         float startY = GetPathY(0, screenHeight);
-        Vector2 prevPoint = new Vector2(0, startY);
+        Vector2 prevPoint = new(0, startY);
 
         for (int x = step; x <= screenWidth + step; x += step)
         {
             float y = GetPathY(x, screenHeight);
-            Vector2 currentPoint = new Vector2(x, y);
+            Vector2 currentPoint = new(x, y);
 
             // При стресі лінія стає не тільки яскравішою, але й трохи товстішою і грубішою
             float thickness = 6f + (stress * 4f);

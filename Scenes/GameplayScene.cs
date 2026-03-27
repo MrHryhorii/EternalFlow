@@ -1,21 +1,21 @@
 using Raylib_cs;
 using static Raylib_cs.Raylib;
 using System.Numerics;
-using System;
 using EternalFlow.Core;
 
 namespace EternalFlow.Scenes;
 
 public class GameplayScene(Game game, Font font) : Scene(game, font)
 {
-    private readonly PathGenerator path = new PathGenerator();
-    private readonly ColorManager colorManager = new ColorManager();
-    private readonly FloatingShapes backgroundShapes = new FloatingShapes(GetScreenWidth(), GetScreenHeight(), 20);
+    private readonly PathGenerator path = new();
+    private readonly ColorManager colorManager = new();
+    private readonly FloatingShapes backgroundShapes = new(GetScreenWidth(), GetScreenHeight(), 20);
 
     // ТЕСТОВИЙ РЕГУЛЯТОР БЕЗУМСТВА (від 0.0 до 1.0)
     private float mockStress = 0f;
 
     private readonly Player player = new(GetScreenHeight()); // Додали гравця
+    private readonly PlayerController playerController = new(); // Ініціалізуємо контролер
 
     public override void Update()
     {
@@ -24,17 +24,20 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             game.ChangeScene(new MenuScene(game, font));
         }
 
-        // Керування стресом для тесту
-        if (IsKeyDown(KeyboardKey.Up) || IsKeyDown(KeyboardKey.W)) mockStress += 0.5f * GetFrameTime();
-        if (IsKeyDown(KeyboardKey.Down) || IsKeyDown(KeyboardKey.S)) mockStress -= 0.5f * GetFrameTime();
+        float deltaTime = GetFrameTime();
+        int screenHeight = GetScreenHeight();
+
+        /// КЕРУВАННЯ СТРЕСОМ (ТІЛЬКИ СТРІЛОЧКАМИ)
+        if (IsKeyDown(KeyboardKey.Up)) mockStress += 0.5f * deltaTime;
+        if (IsKeyDown(KeyboardKey.Down)) mockStress -= 0.5f * deltaTime;
         mockStress = Math.Clamp(mockStress, 0f, 1f);
 
-        float deltaTime = GetFrameTime();
-        path.Update(mockStress);
-        // Передаємо стрес у ColorManager
-        colorManager.Update(path, GetScreenHeight(), mockStress);
-        backgroundShapes.Update();
+        // КЕРУВАННЯ ГРАВЦЕМ (ТІЛЬКИ W та S)
+        playerController.Update(player, deltaTime, screenHeight);
 
+        path.Update(mockStress);
+        colorManager.Update(path, screenHeight, mockStress);
+        backgroundShapes.Update();
         player.Update(deltaTime);
     }
 
