@@ -1,5 +1,5 @@
 using Raylib_cs;
-using static Raylib_cs.Raylib;
+using System;
 using System.Numerics;
 
 namespace EternalFlow.Core;
@@ -7,32 +7,51 @@ namespace EternalFlow.Core;
 public class PathGenerator
 {
     private float time = 0f;
-    private readonly float scrollSpeed = 1.5f; // Трохи зменшили загальну швидкість часу для плавності
+    private readonly float scrollSpeed = 1.5f;
 
-    public void Update()
+    // Зберігаємо плавний стрес, щоб лінія не розривалася від різких рухів
+    private float internalStress = 0f;
+
+    // Тепер Update приймає поточний стрес від гравця/сцени
+    public void Update(float currentStress)
     {
-        time += GetFrameTime() * scrollSpeed;
+        float deltaTime = Raylib.GetFrameTime();
+        time += deltaTime * scrollSpeed;
+
+        // Плавно наближаємо внутрішній стрес до цільового
+        internalStress += (currentStress - internalStress) * deltaTime * 2f;
     }
 
-    // Цей метод тепер рахує висоту лінії для будь-якої точки X
     public float GetPathY(float x, int screenHeight)
     {
         float centerY = screenHeight / 2f;
 
-        // 1. Повільна хвиля (задає довгі підйоми та спуски)
-        float wave1 = (float)Math.Sin((x * 0.0015f) + (time * 0.8f)) * 140f;
+        // 1. ФАЗА ВСТУПУ (Пряма -> Маленькі поштовхи -> Повна крива)
+        // Перші 6 секунд гри розмах росте від 0 до 1
+        float introProgress = Math.Clamp(time / 6f, 0f, 1f);
 
-        // 2. Середня хвиля (стандартні вигини)
-        float wave2 = (float)Math.Sin((x * 0.004f) + (time * 1.5f)) * 70f;
+        // Використовуємо SmoothStep для дуже м'якого старту
+        float introMultiplier = introProgress * introProgress * (3f - 2f * introProgress);
 
-        // 3. Динамічна хвиля, яка іноді зникає
-        // Math.Sin(time * 0.3f) дає значення від -1 до 1. 
-        // Трохи математики, і ми отримуємо множник від 0 до 1, який періодично "вимикає" третю хвилю
-        float chaosModulator = (float)Math.Sin(time * 0.3f) * 0.5f + 0.5f;
-        float wave3 = (float)Math.Cos((x * 0.007f) + (time * 2.5f)) * (50f * chaosModulator);
+        // 2. ВПЛИВ СТРЕСУ НА РОЗМАХ
+        // Якщо стресу немає = 1.0 (як зараз). При повному стресі = 2.5 (дуже широкі гойдалки)
+        float amplitudeStressMod = 1f + (internalStress * 1.5f);
 
-        // Складаємо всі хвилі разом
-        return centerY + wave1 + wave2 + wave3;
+        // 3. БАЗОВІ ХВИЛІ
+        float wave1 = MathF.Sin((x * 0.0015f) + (time * 0.8f)) * 140f;
+        float wave2 = MathF.Sin((x * 0.004f) + (time * 1.5f)) * 70f;
+
+        float chaosModulator = MathF.Sin(time * 0.3f) * 0.5f + 0.5f;
+        float wave3 = MathF.Cos((x * 0.007f) + (time * 2.5f)) * (50f * chaosModulator);
+
+        // 4. НЕРВОВА ВІБРАЦІЯ ЛІНІЇ (Тільки при стресі)
+        // Додаємо дрібну "пилку", яка робить маршрут візуально нестабільним
+        float noise = MathF.Sin(x * 0.05f - time * 15f) * (15f * internalStress);
+
+        // Збираємо все до купи!
+        float totalWave = (wave1 + wave2 + wave3) * introMultiplier * amplitudeStressMod + noise;
+
+        return centerY + totalWave;
     }
 
     public void Draw(int screenWidth, int screenHeight, float currentHue, float stress)
@@ -44,23 +63,19 @@ public class PathGenerator
         float hue = (currentHue + time * 10f) % 360f;
 
         Color lineColor = ColorConverter.OklchToColor(lightness, chroma, hue);
-
-        // ДОДАЄМО ПРОЗОРІСТЬ:
-        // Альфа-канал в Raylib вимірюється від 0 (невидимий) до 255 (суцільний).
-        // Якщо stress = 0, прозорість буде 160 (це близько 60% видимості - достатньо для легкого злиття).
-        // Якщо stress = 1, прозорість стане 255 (абсолютно тверда лінія).
-        byte alpha = (byte)Math.Clamp(160 + (stress * 95), 0, 255);
-        lineColor.A = alpha;
+        lineColor.A = (byte)Math.Clamp(160 + (stress * 95), 0, 255);
 
         float startY = GetPathY(0, screenHeight);
-        Vector2 prevPoint = new(0, startY);
+        Vector2 prevPoint = new Vector2(0, startY);
 
         for (int x = step; x <= screenWidth + step; x += step)
         {
             float y = GetPathY(x, screenHeight);
-            Vector2 currentPoint = new(x, y);
+            Vector2 currentPoint = new Vector2(x, y);
 
-            DrawLineEx(prevPoint, currentPoint, 6f, lineColor);
+            // При стресі лінія стає не тільки яскравішою, але й трохи товстішою і грубішою
+            float thickness = 6f + (stress * 4f);
+            Raylib.DrawLineEx(prevPoint, currentPoint, thickness, lineColor);
 
             prevPoint = currentPoint;
         }

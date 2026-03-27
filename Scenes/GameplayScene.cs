@@ -8,9 +8,9 @@ namespace EternalFlow.Scenes;
 
 public class GameplayScene : Scene
 {
-    private PathGenerator path;
-    private ColorManager colorManager;
-    private FloatingShapes backgroundShapes;
+    private readonly PathGenerator path;
+    private readonly ColorManager colorManager;
+    private readonly FloatingShapes backgroundShapes;
 
     // ТЕСТОВИЙ РЕГУЛЯТОР БЕЗУМСТВА (від 0.0 до 1.0)
     private float mockStress = 0f;
@@ -34,7 +34,7 @@ public class GameplayScene : Scene
         if (IsKeyDown(KeyboardKey.Down) || IsKeyDown(KeyboardKey.S)) mockStress -= 0.5f * GetFrameTime();
         mockStress = Math.Clamp(mockStress, 0f, 1f);
 
-        path.Update();
+        path.Update(mockStress);
         colorManager.Update(path, GetScreenHeight());
         backgroundShapes.Update();
     }

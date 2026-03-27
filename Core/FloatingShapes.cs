@@ -26,7 +26,7 @@ public class FloatingShapes
         public MutationType Mutation; // Тип мутації цієї конкретної фігури
     }
 
-    private List<FloatingShape> shapes = new();
+    private readonly List<FloatingShape> shapes = [];
 
     public FloatingShapes(int screenWidth, int screenHeight, int shapeCount = 15)
     {
