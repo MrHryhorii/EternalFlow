@@ -48,7 +48,7 @@ public class Player
 
             // Налаштовуємо таймер так, щоб він скидав відлуння рівно 2 рази за один цикл пульсу
             // Один повний цикл синусоїди = 2 * PI. Ділимо на швидкість пульсу.
-            echoSpawnTimer = (MathF.PI * 2f) / (pulseSpeed * 2f);
+            echoSpawnTimer = MathF.PI * 2f / (pulseSpeed * 2f);
         }
 
         // 2. ФІЗИКА ШЛЕЙФУ

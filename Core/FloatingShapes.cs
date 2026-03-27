@@ -49,32 +49,14 @@ public class FloatingShapes
     {
         for (int i = 0; i < shapeCount; i++)
         {
-            int sides = Random.Shared.Next(3, 7);
-            ShapeStyle style = (ShapeStyle)Random.Shared.Next(0, 3);
-
-            int roll = Random.Shared.Next(100);
-            bool shouldBoil = style switch
+            var shape = new FloatingShape
             {
-                ShapeStyle.Standard => roll < CHANCE_TO_BOIL_STANDARD,
-                ShapeStyle.Asymmetric => roll < CHANCE_TO_BOIL_ASYMMETRIC,
-                ShapeStyle.Spiky => roll < CHANCE_TO_BOIL_SPIKY,
-                _ => false
+                // При створенні генеруємо випадкову позицію по всьому екрану
+                Position = new Vector2(Random.Shared.Next(0, screenWidth), Random.Shared.Next(0, screenHeight))
             };
 
-            shapes.Add(new FloatingShape
-            {
-                Position = new Vector2(Random.Shared.Next(0, screenWidth), Random.Shared.Next(0, screenHeight)),
-                Radius = Random.Shared.Next(35, 85),
-                Speed = Random.Shared.NextSingle() * 1.0f + 0.5f,
-                HueOffset = Random.Shared.Next(-20, 20),
-                TargetSides = sides,
-                Rotation = Random.Shared.NextSingle() * MathF.PI * 2f,
-                RotSpeed = (Random.Shared.NextSingle() - 0.5f) * 1.2f,
-                Style = style,
-                AsymmetryFactor = Random.Shared.NextSingle() * 0.4f + 0.4f,
-                BoilIntensity = Random.Shared.NextSingle() * 5f + 10f,
-                WillBoil = shouldBoil
-            });
+            ResetShapeParameters(shape);
+            shapes.Add(shape);
         }
     }
 
@@ -89,12 +71,44 @@ public class FloatingShapes
             shape.Position.X -= shape.Speed * 60f * deltaTime;
             shape.Rotation += shape.RotSpeed * deltaTime;
 
+            // Якщо фігура вийшла за лівий край екрана
             if (shape.Position.X + shape.Radius * 2 < 0)
             {
+                // Перероджуємо її властивості (нова форма, швидкість, колір тощо)
+                ResetShapeParameters(shape);
+
+                // Ставимо її за правий край екрана
                 shape.Position.X = screenWidth + shape.Radius * 2;
                 shape.Position.Y = Random.Shared.Next(0, screenHeight);
             }
         }
+    }
+
+    // Новий метод, який генерує "ДНК" фігури
+    private static void ResetShapeParameters(FloatingShape shape)
+    {
+        int sides = Random.Shared.Next(3, 7);
+        ShapeStyle style = (ShapeStyle)Random.Shared.Next(0, 3);
+
+        int roll = Random.Shared.Next(100);
+        bool shouldBoil = style switch
+        {
+            ShapeStyle.Standard => roll < CHANCE_TO_BOIL_STANDARD,
+            ShapeStyle.Asymmetric => roll < CHANCE_TO_BOIL_ASYMMETRIC,
+            ShapeStyle.Spiky => roll < CHANCE_TO_BOIL_SPIKY,
+            _ => false
+        };
+
+        shape.Radius = Random.Shared.Next(35, 85);
+        shape.Speed = Random.Shared.NextSingle() * 1.0f + 0.5f;
+        shape.HueOffset = Random.Shared.Next(-20, 20);
+        shape.TargetSides = sides;
+        shape.Rotation = Random.Shared.NextSingle() * MathF.PI * 2f;
+        shape.RotSpeed = (Random.Shared.NextSingle() - 0.5f) * 1.2f;
+        shape.Style = style;
+        shape.AsymmetryFactor = Random.Shared.NextSingle() * 0.4f + 0.4f;
+        shape.BoilIntensity = Random.Shared.NextSingle() * 5f + 10f;
+        shape.WillBoil = shouldBoil;
     }
 
     public void Draw(float baseHue, float baseLightness, float stress)
@@ -163,7 +177,7 @@ public class FloatingShapes
                 else if (shape.TargetSides == 4)
                 {
                     targetR = GetPolyRadius(angle, 4, shape.Radius);
-                    targetR *= (1f + MathF.Abs(MathF.Cos(angle)) * (shape.AsymmetryFactor * 1.5f * stress));
+                    targetR *= 1f + MathF.Abs(MathF.Cos(angle)) * (shape.AsymmetryFactor * 1.5f * stress);
                 }
                 else
                 {
@@ -183,7 +197,6 @@ public class FloatingShapes
 
         if (shape.WillBoil)
         {
-            // Використовуємо константу BOIL_FORCE
             float boilNoise = MathF.Sin(angle * shape.BoilIntensity + time * 20f) * (shape.Radius * BOIL_FORCE * stress);
             return resultR + boilNoise;
         }
