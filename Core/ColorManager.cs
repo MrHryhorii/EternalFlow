@@ -81,18 +81,35 @@ public class ColorManager
             }
         }
 
-        // ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ (залишається без змін)
+        // ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ
         float pathY = path.GetPathY(100, screenHeight);
         float normalizedY = Math.Clamp(pathY / screenHeight, 0f, 1f);
 
         float darkeningPower = 0.17f + (stress * 0.3f);
         float targetLightness = 0.92f - (normalizedY * darkeningPower);
+        float targetChroma = 0.06f; // Базова насиченість фону
 
-        CurrentLightness += (targetLightness - CurrentLightness) * deltaTime * 0.15f;
+        float lightnessLerpSpeed = 0.15f; // Звичайна розслаблена швидкість зміни
+
+        // --- ЗАНУРЕННЯ В ТЕМРЯВУ (Стрес > 75%) ---
+        if (stress > 0.75f)
+        {
+            float burnFactor = (stress - 0.75f) / 0.25f; // Від 0.0 до 1.0
+
+            // Силою тягнемо світлоту та кольоровість до чорного
+            targetLightness *= (1f - burnFactor);
+            targetChroma *= (1f - burnFactor);
+
+            // Коли ми горимо, темрява має наступати швидко і агресивно
+            lightnessLerpSpeed = 2.0f + (burnFactor * 5f);
+        }
+
+        CurrentLightness += (targetLightness - CurrentLightness) * deltaTime * lightnessLerpSpeed;
 
         float finalHue = CurrentHue % 360f;
         if (finalHue < 0) finalHue += 360f;
 
-        BackgroundColor = ColorConverter.OklchToColor(CurrentLightness, 0.06f, finalHue);
+        // Використовуємо наш targetChroma, який згасає при стресі
+        BackgroundColor = ColorConverter.OklchToColor(CurrentLightness, targetChroma, finalHue);
     }
 }
