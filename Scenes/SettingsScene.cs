@@ -1,5 +1,6 @@
 using Raylib_cs;
 using System.Numerics;
+using EternalFlow.Core;
 
 namespace EternalFlow.Scenes;
 
@@ -19,11 +20,15 @@ public class SettingsScene : Scene
     private int currentResIndex = 0;
     private bool isFullscreen;
 
+    // --- Елементи для живого фону ---
+    private readonly FloatingShapes backgroundShapes;
+    private readonly ColorManager colorManager;
+    private readonly PathGenerator dummyPath;
+
     public SettingsScene(Game game, Font font) : base(game, font)
     {
         isFullscreen = Raylib.IsWindowFullscreen();
 
-        // Знаходимо поточну роздільну здатність при відкритті меню
         int currentW = Raylib.GetScreenWidth();
         int currentH = Raylib.GetScreenHeight();
 
@@ -35,10 +40,32 @@ public class SettingsScene : Scene
                 break;
             }
         }
+
+        // Ініціалізуємо фон
+        backgroundShapes = new FloatingShapes(Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), 15);
+        colorManager = new ColorManager();
+        dummyPath = new PathGenerator();
     }
 
     public override void Update()
     {
+        float deltaTime = Raylib.GetFrameTime();
+        int screenHeight = Raylib.GetScreenHeight();
+
+        // ОНОВЛЕННЯ ФОНУ (Стрес завжди 0)
+        dummyPath.Update(0f, deltaTime);
+        colorManager.Update(dummyPath, screenHeight, 0f, deltaTime);
+        backgroundShapes.Update(deltaTime);
+
+        // --- ЛОГІКА КЕРУВАННЯ ---
+
+        // Вихід через ESC
+        if (Raylib.IsKeyPressed(KeyboardKey.Escape))
+        {
+            game.ChangeScene(new MenuScene(game, font));
+            return; // Виходимо з методу, щоб уникнути конфліктів
+        }
+
         // Навігація вгору/вниз
         if (Raylib.IsKeyPressed(KeyboardKey.Up) || Raylib.IsKeyPressed(KeyboardKey.W))
         {
@@ -82,7 +109,6 @@ public class SettingsScene : Scene
 
     private void ApplyResolution()
     {
-        // Якщо ми в повноекранному режимі, спочатку виходимо з нього
         if (Raylib.IsWindowFullscreen())
         {
             Raylib.ToggleFullscreen();
@@ -94,7 +120,6 @@ public class SettingsScene : Scene
 
         Raylib.SetWindowSize(targetWidth, targetHeight);
 
-        // Центруємо вікно після зміни розміру
         int monitor = Raylib.GetCurrentMonitor();
         int monW = Raylib.GetMonitorWidth(monitor);
         int monH = Raylib.GetMonitorHeight(monitor);
@@ -111,19 +136,27 @@ public class SettingsScene : Scene
     public override void Draw()
     {
         Raylib.BeginDrawing();
-        Raylib.ClearBackground(Color.Black);
 
-        Raylib.DrawTextEx(font, "НАЛАШТУВАННЯ", new Vector2(280, 150), 72, 6, Color.Violet);
+        // МАЛЮЄМО ЖИВИЙ ФОН
+        Raylib.ClearBackground(colorManager.BackgroundColor);
+        backgroundShapes.Draw(colorManager.CurrentHue, colorManager.CurrentLightness, 0f);
 
+        // ЗАГОЛОВОК
+        Color titleColor = Color.Violet;
+        titleColor.A = 220;
+        DrawTextWithShadow("НАЛАШТУВАННЯ", new Vector2(280, 150), 72, 6, titleColor);
+
+        // ПУНКТИ МЕНЮ
         for (int i = 0; i < menuOptions.Length; i++)
         {
-            Color color = (i == selectedOption) ? Color.Lime : Color.White;
+            Color itemColor = (i == selectedOption) ? Color.Lime : new Color(200, 200, 200, 255);
+            itemColor.A = (byte)((i == selectedOption) ? 220 : 160);
+
             float fontSize = (i == selectedOption) ? 48 : 40;
             Vector2 position = new(350, 300 + i * 70);
 
             string text = menuOptions[i];
 
-            // Додаємо поточні значення до пунктів меню
             if (i == 0)
             {
                 text += $":  < {resolutions[currentResIndex].width}x{resolutions[currentResIndex].height} >";
@@ -133,19 +166,35 @@ public class SettingsScene : Scene
                 text += isFullscreen ? ":  [ ТАК ]" : ":  [ НІ ]";
             }
 
-            Raylib.DrawTextEx(font, text, position, fontSize, 2, color);
+            DrawTextWithShadow(text, position, fontSize, 2, itemColor);
 
             if (i == selectedOption)
             {
-                Raylib.DrawTextEx(font, "►", new Vector2(300, 300 + i * 70 + (fontSize == 48 ? 4 : 0)), fontSize, 2, Color.Lime);
+                Color cursorColor = Color.Lime;
+                cursorColor.A = 220;
+                DrawTextWithShadow("►", new Vector2(300, 300 + i * 70 + (fontSize == 48 ? 4 : 0)), fontSize, 2, cursorColor);
             }
         }
 
-        Raylib.DrawTextEx(font, "Вгору/Вниз: Вибір  |  Вліво/Вправо: Зміна", new Vector2(350, 600), 24, 2, Color.Gray);
+        // ПІДКАЗКА (БЕЗ ТІНІ)
+        Color hintColor = Color.DarkGray;
+        hintColor.A = 120;
+        // Додав інформацію про ESC
+        Raylib.DrawTextEx(font, "Вгору/Вниз: Вибір  |  Вліво/Вправо: Зміна  |  ESC: Назад", new Vector2(280, 600), 24, 2, hintColor);
 
-        // Малюємо наш плавний перехід
+        // ПЛАВНИЙ ПЕРЕХІД
         game.DrawTransitionOverlay();
 
         Raylib.EndDrawing();
+    }
+
+    // Той самий метод для тіней, що і в MenuScene
+    private void DrawTextWithShadow(string text, Vector2 position, float fontSize, float spacing, Color textColor)
+    {
+        float shadowOffset = fontSize > 40 ? 3f : 2f;
+        Color shadowColor = new Color(0, 0, 0, 70);
+
+        Raylib.DrawTextEx(font, text, new Vector2(position.X + shadowOffset, position.Y + shadowOffset), fontSize, spacing, shadowColor);
+        Raylib.DrawTextEx(font, text, position, fontSize, spacing, textColor);
     }
 }
