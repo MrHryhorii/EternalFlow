@@ -4,19 +4,24 @@ using EternalFlow.Core;
 
 namespace EternalFlow.Scenes;
 
-public class MenuScene(Game game, Font font) : Scene(game, font)
+public class MenuScene : Scene
 {
     private int selectedOption = 0;
     private readonly string[] menuOptions = ["Грати", "Налаштування", "Вийти"];
 
-    // Підключаємо наші ігрові системи для фону
-    private readonly FloatingShapes backgroundShapes = new(Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), 15);
-    private readonly ColorManager colorManager = new();
-    private readonly PathGenerator dummyPath = new();
+    private readonly FloatingShapes backgroundShapes;
+    private readonly ColorManager colorManager;
+    private readonly PathGenerator dummyPath;
+
+    public MenuScene(Game game, Font font) : base(game, font)
+    {
+        backgroundShapes = new FloatingShapes(Raylib.GetScreenWidth(), Raylib.GetScreenHeight(), 15);
+        colorManager = new ColorManager();
+        dummyPath = new PathGenerator();
+    }
 
     public override void Update()
     {
-        // ОНОВЛЕННЯ ФОНУ (Стрес завжди 0)
         float deltaTime = Raylib.GetFrameTime();
         int screenHeight = Raylib.GetScreenHeight();
 
@@ -24,7 +29,6 @@ public class MenuScene(Game game, Font font) : Scene(game, font)
         colorManager.Update(dummyPath, screenHeight, 0f, deltaTime);
         backgroundShapes.Update(deltaTime);
 
-        // ЛОГІКА МЕНЮ
         if (Raylib.IsKeyPressed(KeyboardKey.Up) || Raylib.IsKeyPressed(KeyboardKey.W))
         {
             selectedOption = (selectedOption - 1 + menuOptions.Length) % menuOptions.Length;
@@ -49,50 +53,53 @@ public class MenuScene(Game game, Font font) : Scene(game, font)
     {
         Raylib.BeginDrawing();
 
-        // МАЛЮЄМО ЖИВИЙ ФОН
         Raylib.ClearBackground(colorManager.BackgroundColor);
-        backgroundShapes.Draw(colorManager.CurrentHue, colorManager.CurrentLightness, 0f); // stress = 0f
+        backgroundShapes.Draw(colorManager.CurrentHue, colorManager.CurrentLightness, 0f);
 
-        // МАЛЮЄМО МЕНЮ З ТІНЯМИ
-        // Допоміжний метод для тексту з тінню
-        DrawTextWithShadow("ETERNAL FLOW", new Vector2(280, 150), 72, 6, Color.White);
+        // --- МАЛЮЄМО МЕНЮ ---
 
+        // 1. Заголовок (злегка прозорий)
+        Color titleColor = Color.Violet;
+        titleColor.A = 220; // Прозорість 220 з 255
+        DrawTextWithShadow("ETERNAL FLOW", new Vector2(280, 150), 72, 6, titleColor);
+
+        // 2. Пункти меню
         for (int i = 0; i < menuOptions.Length; i++)
         {
-            Color color = (i == selectedOption) ? Color.Lime : new Color(220, 220, 220, 255);
-            float fontSize = (i == selectedOption) ? 48 : 40;
+            // Активний пункт яскравіший, неактивні - більш прозорі і сірі
+            Color itemColor = (i == selectedOption) ? Color.Lime : new Color(200, 200, 200, 255);
+            itemColor.A = (byte)((i == selectedOption) ? 220 : 160);
 
+            float fontSize = (i == selectedOption) ? 48 : 40;
             Vector2 position = new(500, 300 + i * 70);
 
-            // Текст пунктів меню
-            DrawTextWithShadow(menuOptions[i], position, fontSize, 2, color);
+            DrawTextWithShadow(menuOptions[i], position, fontSize, 2, itemColor);
 
-            // Курсор
             if (i == selectedOption)
             {
-                DrawTextWithShadow("►", new Vector2(450, 300 + i * 70 + (fontSize == 48 ? 4 : 0)), fontSize, 2, Color.Lime);
+                Color cursorColor = Color.Lime;
+                cursorColor.A = 220;
+                DrawTextWithShadow("►", new Vector2(450, 300 + i * 70 + (fontSize == 48 ? 4 : 0)), fontSize, 2, cursorColor);
             }
         }
 
-        DrawTextWithShadow("Використовуй ↑ ↓ та ENTER", new Vector2(420, 580), 24, 2, Color.DarkGray);
+        // 3. Підказка (БЕЗ ТІНІ, напівпрозора, щоб не кидалася в очі)
+        Color hintColor = Color.DarkGray;
+        hintColor.A = 120; // Робимо її дуже делікатною
+        Raylib.DrawTextEx(font, "Використовуй ↑ ↓ та ENTER", new Vector2(420, 580), 24, 2, hintColor);
 
-        // Малюємо плавний перехід поверх усього
         game.DrawTransitionOverlay();
-
         Raylib.EndDrawing();
     }
 
-    // НОВИЙ МЕТОД: Малює текст, підкладаючи під нього чорну тінь
     private void DrawTextWithShadow(string text, Vector2 position, float fontSize, float spacing, Color textColor)
     {
-        // Зсув тіні. Для великого тексту робимо її трохи більшою
-        float shadowOffset = fontSize > 40 ? 4f : 2f;
-        Color shadowColor = new(0, 0, 0, 150); // Напівпрозорий чорний
+        float shadowOffset = fontSize > 40 ? 3f : 2f;
 
-        // Малюємо тінь (зсунуту вправо і вниз)
+        // Робимо тінь значно прозорішою (було 150, стало 70)
+        Color shadowColor = new(0, 0, 0, 70);
+
         Raylib.DrawTextEx(font, text, new Vector2(position.X + shadowOffset, position.Y + shadowOffset), fontSize, spacing, shadowColor);
-
-        // Малюємо основний текст
         Raylib.DrawTextEx(font, text, position, fontSize, spacing, textColor);
     }
 }

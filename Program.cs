@@ -33,6 +33,11 @@ class Program
         {
             Console.WriteLine("Помилка: Не вдалося завантажити шрифт!");
         }
+        else
+        {
+            // Вмикаємо білінійну фільтрацію текстури шрифту для м'якого згладжування
+            SetTextureFilter(globalFont.Texture, TextureFilter.Bilinear);
+        }
 
         Game game = new(globalFont);
 
