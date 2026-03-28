@@ -15,6 +15,8 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
     private readonly PlayerController playerController = new();
     private readonly StressManager stressManager = new();
 
+    private readonly ScoreManager scoreManager = new();
+
     private bool isPaused = false;
     private float pauseAlpha = 0f; // Прозорість меню паузи (0 - невидиме, 1 - повністю видиме)
     private float timeScale = 1f;  // Масштаб часу (1 - норма, 0 - зупинка)
@@ -63,6 +65,9 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         stressManager.Update(player, path, screenHeight, gameDeltaTime);
         float currentStress = stressManager.CurrentStress;
 
+        // ДОДАЄМО ОНОВЛЕННЯ РАХУНКУ
+        scoreManager.Update(currentStress, gameDeltaTime);
+
         path.Update(currentStress, gameDeltaTime);
         colorManager.Update(path, screenHeight, currentStress, gameDeltaTime);
         backgroundShapes.Update(gameDeltaTime);
@@ -87,6 +92,23 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         int stressPercent = (int)(currentStress * 100);
         Color stressColor = ColorLerp(Color.Lime, Color.Red, currentStress);
         DrawTextEx(font, $"СТРЕС: {stressPercent}%", new Vector2(20, 70), 30, 2, stressColor);
+
+        // МАЛЮЄМО РАХУНОК (у правому верхньому куті)
+        int score = (int)scoreManager.CurrentScore;
+        string scoreText = $"{score}";
+        Vector2 scoreSize = MeasureTextEx(font, scoreText, 40, 2);
+        DrawTextEx(font, scoreText, new Vector2(screenWidth - scoreSize.X - 20, 20), 40, 2, Color.White);
+
+        // МАЛЮЄМО МНОЖНИК (під рахунком)
+        float multiplier = scoreManager.CurrentMultiplier;
+        string multText = $"x{multiplier:F1}"; // Форматуємо до 1 знаку після коми (напр. x2.5)
+
+        // Колір множника залежить від його розміру (від білого до яскраво-золотого)
+        float multLerp = (multiplier - 1f) / 4f; // Від 0 до 1
+        Color multColor = ColorLerp(Color.LightGray, Color.Gold, multLerp);
+
+        Vector2 multSize = MeasureTextEx(font, multText, 30, 2);
+        DrawTextEx(font, multText, new Vector2(screenWidth - multSize.X - 20, 65), 30, 2, multColor);
 
         // МАЛЮЄМО ПАУЗУ З УРАХУВАННЯМ ПРОЗОРОСТІ (pauseAlpha)
         if (pauseAlpha > 0f)
