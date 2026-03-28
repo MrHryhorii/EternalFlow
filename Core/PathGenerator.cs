@@ -64,12 +64,29 @@ public class PathGenerator
     {
         int step = 15;
 
+        // Базові налаштування кольору (залежать від стресу)
         float lightness = 0.98f - (stress * 0.38f);
         float chroma = 0.015f + (stress * 0.135f);
-        float hue = (currentHue + time * 10f) % 360f;
+        float alphaFloat = Math.Clamp(160f + (stress * 95f), 0f, 255f);
 
+        // --- ВТРАТА ПОТОКУ (Згасання у темряву) ---
+        if (stress > 0.75f)
+        {
+            float burnFactor = (stress - 0.75f) / 0.25f; // Від 0.0 до 1.0
+
+            // Силою тягнемо світлоту до нуля (чорний колір)
+            lightness *= (1f - burnFactor);
+
+            // Силою вбиваємо насиченість
+            chroma *= (1f - burnFactor);
+
+            // Плавно робимо лінію майже прозорою (залишаємо привид лінії = 15/255)
+            alphaFloat = alphaFloat - (alphaFloat - 15f) * burnFactor;
+        }
+
+        float hue = (currentHue + time * 10f) % 360f;
         Color lineColor = ColorConverter.OklchToColor(lightness, chroma, hue);
-        lineColor.A = (byte)Math.Clamp(160 + (stress * 95), 0, 255);
+        lineColor.A = (byte)alphaFloat;
 
         float startY = GetPathY(0, screenHeight);
         Vector2 prevPoint = new(0, startY);
@@ -79,8 +96,10 @@ public class PathGenerator
             float y = GetPathY(x, screenHeight);
             Vector2 currentPoint = new(x, y);
 
-            // При стресі лінія стає не тільки яскравішою, але й трохи товстішою і грубішою
+            // Товщина лінії при стресі залишається великою
             float thickness = 6f + (stress * 4f);
+
+            // Малюємо суцільну, але згасаючу лінію
             Raylib.DrawLineEx(prevPoint, currentPoint, thickness, lineColor);
 
             prevPoint = currentPoint;
