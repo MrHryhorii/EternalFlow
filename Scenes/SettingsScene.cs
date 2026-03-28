@@ -192,7 +192,7 @@ public class SettingsScene : Scene
     private void DrawTextWithShadow(string text, Vector2 position, float fontSize, float spacing, Color textColor)
     {
         float shadowOffset = fontSize > 40 ? 3f : 2f;
-        Color shadowColor = new Color(0, 0, 0, 70);
+        Color shadowColor = new(0, 0, 0, 70);
 
         Raylib.DrawTextEx(font, text, new Vector2(position.X + shadowOffset, position.Y + shadowOffset), fontSize, spacing, shadowColor);
         Raylib.DrawTextEx(font, text, position, fontSize, spacing, textColor);
