@@ -201,24 +201,29 @@ public class AudioManager
         }
     }
 
-    // Цей метод підключається напряму до аудіодвижка
+    // Цей метод підключається напряму до аудіорушія
     [System.Runtime.InteropServices.UnmanagedCallersOnly(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     private static unsafe void AudioProcessor(void* bufferData, uint frames)
     {
-        float* samples = (float*)bufferData;
+        // Стерео = 2 канали
+        int sampleCount = (int)frames * 2;
+
+        // --- Створюємо безпечний Span прямо поверх сирої пам'яті! ---
+        ReadOnlySpan<float> samples = new(bufferData, sampleCount);
+
         float maxAmplitude = 0f;
 
-        // Аналізуємо кадри (зазвичай 2 канали - стерео)
-        for (int i = 0; i < frames * 2; i++)
+        // Тепер ми можемо безпечно бігти по колекції (без індексів і вказівників)
+        foreach (float sample in samples)
         {
-            float currentSample = Math.Abs(samples[i]);
+            float currentSample = Math.Abs(sample);
             if (currentSample > maxAmplitude)
             {
                 maxAmplitude = currentSample;
             }
         }
 
-        // Згладжуємо значення, щоб воно не "смикалося" занадто різко
+        // Згладжуємо значення
         RealtimeAmplitude = (RealtimeAmplitude * 0.8f) + (maxAmplitude * 0.2f);
     }
 
