@@ -32,6 +32,9 @@ public class AudioManager
     // --- НАША НОВА ЗМІННА ГУЧНОСТІ ---
     public float MasterVolume { get; set; } = 0.5f; // Гучність від 0.0 до 1.0 (50% за замовчуванням)
 
+    // --- СПРАВЖНЯ АМПЛІТУДА МУЗИКИ (від 0.0 до ~1.0) ---
+    public static float RealtimeAmplitude { get; private set; } = 0f;
+
     public AudioManager()
     {
         Raylib.InitAudioDevice();
@@ -67,7 +70,7 @@ public class AudioManager
         }
     }
 
-    // --- НОВИЙ НАДІЙНИЙ МЕТОД ПЕРЕВІРКИ ЗАМІСТЬ IsMusicReady ---
+    // --- МЕТОД ПЕРЕВІРКИ ---
     private static bool IsMusicValid(Music music)
     {
         // Якщо кількість кадрів більше нуля, значить файл існує і Raylib зміг його прочитати
@@ -93,6 +96,13 @@ public class AudioManager
             // Одразу ставимо правильну гучність при старті
             Raylib.SetMusicVolume(currentTrack, MasterVolume);
             Raylib.PlayMusicStream(currentTrack);
+
+            // --- ЧІПЛЯЄМО АНАЛІЗАТОР ДО ТРЕКУ ---
+            unsafe
+            {
+                Raylib.AttachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);
+            }
+
             isAudioReady = true;
         }
         else
@@ -147,6 +157,12 @@ public class AudioManager
             {
                 Raylib.PlayMusicStream(nextTrack);
                 Raylib.SetMusicVolume(nextTrack, 0f); // Починаємо з тиші
+
+                // --- ЧІПЛЯЄМО АНАЛІЗАТОР ДО НАСТУПНОГО ТРЕКУ ---
+                unsafe
+                {
+                    Raylib.AttachAudioStreamProcessor(nextTrack.Stream, &AudioProcessor);
+                }
             }
             else
             {
@@ -168,6 +184,13 @@ public class AudioManager
             if (t >= 1f)
             {
                 isCrossfading = false;
+
+                // --- ВІДЧІПЛЯЄМО АНАЛІЗАТОР ВІД СТАРОГО ТРЕКУ ---
+                unsafe
+                {
+                    Raylib.DetachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);
+                }
+
                 Raylib.StopMusicStream(currentTrack);
                 Raylib.UnloadMusicStream(currentTrack);
 
@@ -178,10 +201,38 @@ public class AudioManager
         }
     }
 
+    // Цей метод підключається напряму до аудіодвижка
+    [System.Runtime.InteropServices.UnmanagedCallersOnly(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
+    private static unsafe void AudioProcessor(void* bufferData, uint frames)
+    {
+        float* samples = (float*)bufferData;
+        float maxAmplitude = 0f;
+
+        // Аналізуємо кадри (зазвичай 2 канали - стерео)
+        for (int i = 0; i < frames * 2; i++)
+        {
+            float currentSample = Math.Abs(samples[i]);
+            if (currentSample > maxAmplitude)
+            {
+                maxAmplitude = currentSample;
+            }
+        }
+
+        // Згладжуємо значення, щоб воно не "смикалося" занадто різко
+        RealtimeAmplitude = (RealtimeAmplitude * 0.8f) + (maxAmplitude * 0.2f);
+    }
+
     // Обов'язково треба звільняти пам'ять при виході
     public void Unload()
     {
         if (playlist.Count == 0) return;
+
+        // --- ВІДЧІПЛЯЄМО АНАЛІЗАТОРИ ПЕРЕД ВИХОДОМ ---
+        unsafe
+        {
+            if (IsMusicValid(currentTrack)) Raylib.DetachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);
+            if (isCrossfading && IsMusicValid(nextTrack)) Raylib.DetachAudioStreamProcessor(nextTrack.Stream, &AudioProcessor);
+        }
 
         if (IsMusicValid(currentTrack)) Raylib.UnloadMusicStream(currentTrack);
         if (isCrossfading && IsMusicValid(nextTrack)) Raylib.UnloadMusicStream(nextTrack);

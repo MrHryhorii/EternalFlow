@@ -1,63 +1,72 @@
 using Raylib_cs;
-using System;
-using System.Collections.Generic;
 using System.Numerics;
 
 namespace EternalFlow.Core;
 
-public class Player
+public class Player(int screenHeight)
 {
-    public Vector2 Position;
-    public float VelocityY = 0f; // ДОДАНО: Щоб інші класи знали куди ми летимо
+    public Vector2 Position = new(100, screenHeight / 2f);
+    public float VelocityY = 0f;
 
     private readonly float baseRadius = 25f;
     private float time = 0f;
-    private readonly float pulseSpeed = 4.0f; // Швидкість пульсу винесена в змінну класу
 
-    // Клас для частинок шлейфу (Відлуння)
+    // --- АУДІОРЕАКТИВНІ ЗМІННІ ---
+    private float previousAmplitude = 0f;
+    private float beatCooldown = 0f;
+    private float fallbackTimer = 0f; // Таймер на випадок, якщо музика дуже тиха
+
     private class TrailEcho
     {
         public Vector2 Position;
-        public float Life;   // Життя від 1.0 (нове) до 0.0 (зникло)
-        public float Radius; // Радіус, який буде трохи рости
+        public float Life;
+        public float Radius;
+        public float InitialAmplitude; // Запам'ятовуємо силу біту, щоб робити гучні біти більшими
     }
 
     private readonly List<TrailEcho> trail = [];
-    private float echoSpawnTimer = 0f;
-
-    public Player(int screenHeight)
-    {
-        Position = new Vector2(100, screenHeight / 2f);
-    }
 
     public void Update(float deltaTime)
     {
         time += deltaTime;
 
-        // 1. ОНОВЛЕННЯ ТАЙМЕРА ШЛЕЙФУ (Прив'язка до пульсу)
-        echoSpawnTimer -= deltaTime;
-        if (echoSpawnTimer <= 0)
+        // ЧИТАЄМО МУЗИКУ
+        float currentAmp = AudioManager.RealtimeAmplitude;
+        if (beatCooldown > 0) beatCooldown -= deltaTime;
+        fallbackTimer -= deltaTime;
+
+        // ДЕТЕКТОР БІТУ (СКАЧОК АМПЛІТУДИ)
+        // Шукаємо різкий стрибок амплітуди. Якщо його немає довго - спрацьовує fallbackTimer
+        bool isBeat = currentAmp > 0.3f && currentAmp > previousAmplitude + 0.05f && beatCooldown <= 0f;
+
+        if (isBeat || fallbackTimer <= 0)
         {
-            // Додаємо нове кільце-відлуння на поточній позиції гравця
             trail.Add(new TrailEcho
             {
                 Position = this.Position,
                 Life = 1f,
-                Radius = baseRadius
+                Radius = baseRadius,
+                InitialAmplitude = isBeat ? currentAmp : 0.2f // Гучний біт дасть яскравіше відлуння
             });
 
-            // Налаштовуємо таймер так, щоб він скидав відлуння рівно 2 рази за один цикл пульсу
-            // Один повний цикл синусоїди = 2 * PI. Ділимо на швидкість пульсу.
-            echoSpawnTimer = MathF.PI * 2f / (pulseSpeed * 2f);
+            // Якщо це був справжній біт музики, ставимо кулдаун, щоб не спамити кільцями
+            if (isBeat) beatCooldown = 0.2f;
+
+            // Скидаємо страхувальний таймер (щоб кільця пускалися хоча б раз на 0.8 сек у тиші)
+            fallbackTimer = 0.8f;
         }
 
-        // 2. ФІЗИКА ШЛЕЙФУ
-        // Проходимо список з кінця, щоб можна було безпечно видаляти старі частинки
+        previousAmplitude = currentAmp;
+
+        // ФІЗИКА ШЛЕЙФУ
         for (int i = trail.Count - 1; i >= 0; i--)
         {
-            trail[i].Life -= deltaTime * 0.6f;        // Відлуння живе приблизно 1.6 секунди
-            trail[i].Position.X -= 300f * deltaTime;  // Відлітає назад, створюючи ілюзію руху вперед
-            trail[i].Radius += deltaTime * 12f;       // Кільце злегка розширюється, розчиняючись у просторі
+            trail[i].Life -= deltaTime * 0.6f;
+            trail[i].Position.X -= 300f * deltaTime;
+
+            // Швидкість розширення кільця тепер залежить від того, наскільки сильним був біт!
+            float expansionSpeed = 10f + (trail[i].InitialAmplitude * 30f);
+            trail[i].Radius += deltaTime * expansionSpeed;
 
             if (trail[i].Life <= 0)
             {
@@ -68,31 +77,33 @@ public class Player
 
     public void Draw()
     {
-        float pulseAmp = 0.05f;
-        float pulsation = MathF.Sin(time * pulseSpeed) * pulseAmp;
-        float currentMembraneRadius = baseRadius * (1f + pulsation);
+        float currentAmp = AudioManager.RealtimeAmplitude;
+
+        // --- ГІБРИДНИЙ ПУЛЬС ---
+        // Легке математичне дихання (завжди є)
+        float baseBreathing = MathF.Sin(time * 3f) * 0.05f;
+        // Аудіореактивний пульс (різко реагує на бас/гучність)
+        float audioPulse = currentAmp * 0.4f; // До 40% збільшення розміру від музики!
+
+        float currentMembraneRadius = baseRadius * (1f + baseBreathing + audioPulse);
 
         Color coreColor = ColorConverter.OklchToColor(0.98f, 0.02f, 60f);
         Color membraneColor = Color.White;
 
         // --- МАЛЮЄМО ШЛЕЙФ (ВІДЛУННЯ) ---
-        // Малюємо його ДО самого гравця, щоб шлейф був під ним
         foreach (var echo in trail)
         {
-            // Прозорість залежить від того, скільки "життя" залишилося
-            // Максимальна прозорість дуже слабка (50 із 255), щоб не заважати огляду
-            byte alpha = (byte)(50 * echo.Life);
+            // Робимо відлуння від сильних бітів трохи яскравішим
+            float alphaMultiplier = 0.5f + (echo.InitialAmplitude * 0.5f);
+            byte alpha = (byte)(50 * echo.Life * alphaMultiplier);
 
             Color echoMembrane = membraneColor;
             echoMembrane.A = alpha;
 
             Color echoCore = coreColor;
-            echoCore.A = (byte)(20 * echo.Life); // Ядро відлуння ще слабше
+            echoCore.A = (byte)(20 * echo.Life * alphaMultiplier);
 
-            // Малюємо кільце-мембрану відлуння (воно плавно тоншає зі зменшенням Life)
             Raylib.DrawPolyLinesEx(echo.Position, 40, echo.Radius, 0f, 2f * echo.Life, echoMembrane);
-
-            // Ледь помітний залишок світла всередині
             Raylib.DrawCircleV(echo.Position, echo.Radius * 0.4f, echoCore);
         }
 
@@ -103,8 +114,9 @@ public class Player
         coreColor.A = 80;
         Raylib.DrawCircleV(Position, baseRadius * 0.7f, coreColor);
 
+        // Ця аура теж може трохи "стрибати" від музики
         coreColor.A = 30;
-        Raylib.DrawCircleV(Position, baseRadius * 1.1f, coreColor);
+        Raylib.DrawCircleV(Position, baseRadius * (1.1f + audioPulse * 0.5f), coreColor);
 
         membraneColor.A = 150;
         Raylib.DrawPolyLinesEx(Position, 40, currentMembraneRadius, 0f, 2.0f, membraneColor);
