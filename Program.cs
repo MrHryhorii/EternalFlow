@@ -47,6 +47,7 @@ class Program
             game.Draw();
         }
 
+        game.Unload();
         UnloadFont(globalFont);
         CloseWindow();
     }

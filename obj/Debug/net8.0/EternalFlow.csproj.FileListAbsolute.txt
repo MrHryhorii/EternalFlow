@@ -23,3 +23,10 @@ C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\obj\Debug\net8.0
 C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\fonts\DejaVu Fonts License.txt
 C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\fonts\DejaVuSans.ttf
 C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\obj\Debug\net8.0\EternalFlow.sourcelink.json
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track1.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track2.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track3.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track4.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track5.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track6.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Debug\net8.0\sound\track7.mp3

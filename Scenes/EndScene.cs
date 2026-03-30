@@ -27,6 +27,9 @@ public class EndScene : Scene
         float deltaTime = Raylib.GetFrameTime();
         alpha = Math.Clamp(alpha + deltaTime * 0.5f, 0f, 1f); // Плавна поява з темряви
 
+        // --- Плавне заспокоєння стресу (і музики) ---
+        game.GlobalStress = Math.Max(0f, game.GlobalStress - deltaTime * 0.5f);
+
         if (alpha >= 1f)
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Space) || Raylib.IsKeyPressed(KeyboardKey.Enter))

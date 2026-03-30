@@ -52,6 +52,9 @@ public class SettingsScene : Scene
         float deltaTime = Raylib.GetFrameTime();
         int screenHeight = Raylib.GetScreenHeight();
 
+        // --- Плавне заспокоєння стресу (і музики) ---
+        game.GlobalStress = Math.Max(0f, game.GlobalStress - deltaTime * 0.5f);
+
         // ОНОВЛЕННЯ ФОНУ (Стрес завжди 0)
         dummyPath.Update(0f, deltaTime);
         colorManager.Update(dummyPath, screenHeight, 0f, deltaTime);

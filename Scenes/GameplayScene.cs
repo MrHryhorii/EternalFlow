@@ -64,6 +64,8 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         stressManager.Update(player, path, screenHeight, gameDeltaTime);
         float currentStress = stressManager.CurrentStress;
 
+        game.GlobalStress = currentStress;
+
         // ОНОВЛЮЄМО РАХУНОК
         scoreManager.Update(currentStress, gameDeltaTime);
 
