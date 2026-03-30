@@ -7,7 +7,8 @@ namespace EternalFlow.Scenes;
 public class SettingsScene : Scene
 {
     private int selectedOption = 0;
-    private readonly string[] menuOptions = ["Роздільна здатність", "На весь екран", "Назад"];
+
+    private readonly string[] menuOptions = ["Роздільна здатність", "На весь екран", "Гучність музики", "Назад"];
 
     // Варіанти роздільної здатності
     private readonly (int width, int height)[] resolutions = [
@@ -101,7 +102,20 @@ public class SettingsScene : Scene
                 ToggleFullscreenMode();
             }
         }
-        else if (selectedOption == 2) // Назад
+        else if (selectedOption == 2) // Гучність музики
+        {
+            if (Raylib.IsKeyPressed(KeyboardKey.Right) || Raylib.IsKeyPressed(KeyboardKey.D))
+            {
+                // Збільшуємо гучність на 10% (0.1f), але не більше ніж 100% (1.0f)
+                game.Audio.MasterVolume = Math.Min(1.0f, game.Audio.MasterVolume + 0.1f);
+            }
+            if (Raylib.IsKeyPressed(KeyboardKey.Left) || Raylib.IsKeyPressed(KeyboardKey.A))
+            {
+                // Зменшуємо гучність на 10%, але не менше ніж 0% (0.0f)
+                game.Audio.MasterVolume = Math.Max(0.0f, game.Audio.MasterVolume - 0.1f);
+            }
+        }
+        else if (selectedOption == 3) // Назад
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.Space))
             {
@@ -167,6 +181,12 @@ public class SettingsScene : Scene
             else if (i == 1)
             {
                 text += isFullscreen ? ":  [ ТАК ]" : ":  [ НІ ]";
+            }
+            // Додано малювання відсотків гучності
+            else if (i == 2)
+            {
+                int volumePercent = (int)Math.Round(game.Audio.MasterVolume * 100);
+                text += $":  < {volumePercent}% >";
             }
 
             DrawTextWithShadow(text, position, fontSize, 2, itemColor);
