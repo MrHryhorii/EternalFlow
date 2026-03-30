@@ -22,6 +22,9 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
     private float pauseAlpha = 0f;
     private float timeScale = 1f;
 
+    // Змінна для загального часу у грі
+    private float totalPlayTime = 0f;
+
     public override void Update()
     {
         if (IsKeyPressed(KeyboardKey.Escape))
@@ -51,6 +54,10 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         if (isPaused && timeScale == 0f) return;
 
         float gameDeltaTime = realDeltaTime * timeScale;
+
+        // Додаємо час гри (тільки коли не на паузі)
+        totalPlayTime += gameDeltaTime;
+
         int screenHeight = GetScreenHeight();
 
         playerController.Update(player, gameDeltaTime, screenHeight);
@@ -60,11 +67,12 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         // ОНОВЛЮЄМО РАХУНОК
         scoreManager.Update(currentStress, gameDeltaTime);
 
-        // ПЕРЕВІРЯЄМО НА ПРОГРАШ
-        // Якщо рахунок згорів повністю — м'яко виходимо в меню
+        // ПЕРЕВІРКА НА ПРОГРАШ
         if (scoreManager.IsGameOver)
         {
-            game.ChangeScene(new MenuScene(game, font));
+            // Передаємо ПІКОВИЙ рахунок і загальний час на екран результатів
+            int finalScore = (int)scoreManager.PeakScore;
+            game.ChangeScene(new EndScene(game, font, finalScore, totalPlayTime));
             return;
         }
 
@@ -118,11 +126,10 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         }
 
         // Малюємо тінь для рахунку (зміщена на 3 пікселі, прозорість 70)
-        Color shadowColor = new(0, 0, 0, 70);
+        Color shadowColor = new Color(0, 0, 0, 70);
         DrawTextEx(font, scoreText, new Vector2(scorePos.X + 3f, scorePos.Y + 3f), 40, 2, shadowColor);
         // Малюємо сам рахунок
         DrawTextEx(font, scoreText, scorePos, 40, 2, drawScoreColor);
-
 
         // --- МНОЖНИК ---
         float multiplier = scoreManager.CurrentMultiplier;
@@ -150,15 +157,15 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             Vector2 multPos = new(screenWidth - multSize.X - 20, 65);
 
             // Тінь для множника (її прозорість залежить від прозорості самого множника)
+            // ВИПРАВЛЕННЯ: використовуємо int замість byte
             int shadowAlpha = (int)(70f * (multColor.A / 255f));
-            Color multShadowColor = new(0, 0, 0, shadowAlpha);
+            Color multShadowColor = new Color(0, 0, 0, shadowAlpha);
 
             // Малюємо тінь множника
             DrawTextEx(font, multText, new Vector2(multPos.X + 2f, multPos.Y + 2f), 30, 2, multShadowColor);
             // Малюємо сам текст множника
             DrawTextEx(font, multText, multPos, 30, 2, multColor);
         }
-
 
         // Пауза
         if (pauseAlpha > 0f)
@@ -193,11 +200,12 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
     private static Color ColorLerp(Color a, Color b, float t)
     {
+        // Всі змінні надійно конвертуються в int
         return new Color(
-            (byte)(a.R + (b.R - a.R) * t),
-            (byte)(a.G + (b.G - a.G) * t),
-            (byte)(a.B + (b.B - a.B) * t),
-            (byte)255
+            (int)(a.R + (b.R - a.R) * t),
+            (int)(a.G + (b.G - a.G) * t),
+            (int)(a.B + (b.B - a.B) * t),
+            255
         );
     }
 }

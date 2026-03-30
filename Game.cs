@@ -14,6 +14,7 @@ public class Game
     private bool isFadingOut = false; // true - темнішає (сцена зникає), false - світлішає (нова з'являється)
     private float transitionAlpha = 0f; // Від 0.0 (прозоро) до 1.0 (повністю чорний)
     private const float TRANSITION_SPEED = 2.5f; // Чим більше число, тим швидший перехід
+    public int HighScore { get; set; } = 0;
 
     public Game(Font font)
     {

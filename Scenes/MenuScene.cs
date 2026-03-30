@@ -58,12 +58,22 @@ public class MenuScene : Scene
 
         // --- МАЛЮЄМО МЕНЮ ---
 
-        // 1. Заголовок (злегка прозорий)
+        // Заголовок (злегка прозорий)
         Color titleColor = Color.Violet;
         titleColor.A = 220; // Прозорість 220 з 255
         DrawTextWithShadow("ETERNAL FLOW", new Vector2(280, 150), 72, 6, titleColor);
 
-        // 2. Пункти меню
+        // --- НОВЕ: МАЛЮЄМО РЕКОРД (ЯКЩО ВІН Є) ---
+        if (game.HighScore > 0)
+        {
+            Color goldColor = Color.Gold;
+            goldColor.A = 220;
+            string scoreText = $"НАЙКРАЩИЙ ПОТІК: {game.HighScore}";
+            // Розміщуємо акуратно під заголовком
+            DrawTextWithShadow(scoreText, new Vector2(280, 230), 30, 2, goldColor);
+        }
+
+        // Пункти меню
         for (int i = 0; i < menuOptions.Length; i++)
         {
             // Активний пункт яскравіший, неактивні - більш прозорі і сірі
@@ -83,7 +93,7 @@ public class MenuScene : Scene
             }
         }
 
-        // 3. Підказка (БЕЗ ТІНІ, напівпрозора, щоб не кидалася в очі)
+        // Підказка (БЕЗ ТІНІ, напівпрозора, щоб не кидалася в очі)
         Color hintColor = Color.DarkGray;
         hintColor.A = 120; // Робимо її дуже делікатною
         Raylib.DrawTextEx(font, "Використовуй ↑ ↓ та ENTER", new Vector2(420, 580), 24, 2, hintColor);
