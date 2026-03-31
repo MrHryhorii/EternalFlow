@@ -5,6 +5,10 @@ using EternalFlow.Core;
 
 namespace EternalFlow.Scenes;
 
+/// <summary>
+/// The core gameplay loop. Manages the player's interaction with the path,
+/// calculates stress, updates the score, and handles pausing.
+/// </summary>
 public class GameplayScene(Game game, Font font) : Scene(game, font)
 {
     private readonly PathGenerator path = new();
@@ -25,6 +29,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
     public override void Update()
     {
+        // Handle quick exit to the end screen
         if (IsKeyPressed(KeyboardKey.Escape))
         {
             int currentScore = (int)scoreManager.PeakScore;
@@ -35,11 +40,13 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         float realDeltaTime = GetFrameTime();
 
+        // Handle pause toggling
         if (IsKeyPressed(KeyboardKey.Space))
         {
             isPaused = !isPaused;
         }
 
+        // Smoothly animate the pause overlay and adjust the time scale
         if (isPaused)
         {
             pauseAlpha = Math.Clamp(pauseAlpha + realDeltaTime * 4f, 0f, 1f);
@@ -51,6 +58,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             timeScale = Math.Clamp(timeScale + realDeltaTime * 0.6f, 0f, 1f);
         }
 
+        // Halt logic updates if fully paused
         if (isPaused && timeScale == 0f) return;
 
         float gameDeltaTime = realDeltaTime * timeScale;
@@ -59,6 +67,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         int screenHeight = GetScreenHeight();
 
+        // Update core gameplay systems
         playerController.Update(player, gameDeltaTime, screenHeight);
         stressManager.Update(player, path, screenHeight, gameDeltaTime);
         float currentStress = stressManager.CurrentStress;
@@ -67,6 +76,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         scoreManager.Update(currentStress, gameDeltaTime);
 
+        // Check for fail state (score reached zero due to high stress)
         if (scoreManager.IsGameOver)
         {
             int finalScore = (int)scoreManager.PeakScore;
@@ -75,6 +85,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             return;
         }
 
+        // Update visuals
         path.Update(currentStress, gameDeltaTime);
         colorManager.Update(path, screenHeight, currentStress, gameDeltaTime);
         backgroundShapes.Update(gameDeltaTime);
@@ -94,13 +105,16 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         path.Draw(screenWidth, screenHeight, colorManager.CurrentHue, currentStress);
         player.Draw(currentStress);
 
-        // ВИКОРИСТОВУЄМО ПАЛІТРУ
-        DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Palette.TextHint);
-
+        /*
+        // Top-left HUD: Title and Stress level
+        DrawTextEx(font, "ETERNAL FLOW", new Vector2(20, 20), 40, 2, Palette.TextHint);
+        
         int stressPercent = (int)(currentStress * 100);
         Color stressColor = ColorLerp(Palette.Highlight, Palette.Danger, currentStress);
-        DrawTextEx(font, $"СТРЕС: {stressPercent}%", new Vector2(20, 70), 30, 2, stressColor);
+        DrawTextEx(font, $"STRESS: {stressPercent}%", new Vector2(20, 70), 30, 2, stressColor);
+        */
 
+        // Top-right HUD: Score and Multiplier
         int score = (int)scoreManager.CurrentScore;
         string scoreText = $"{score}";
         Vector2 scoreSize = MeasureTextEx(font, scoreText, 40, 2);
@@ -108,6 +122,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         Vector2 scorePos = new(screenWidth - scoreSize.X - 20, 20);
         Color drawScoreColor = Palette.TextMain;
 
+        // Add visual shaking to the score text when stress is critically high
         if (currentStress > 0.75f)
         {
             float burnFactor = (currentStress - 0.75f) / 0.25f;
@@ -125,12 +140,14 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         DrawTextEx(font, scoreText, new Vector2(scorePos.X + 3f, scorePos.Y + 3f), 40, 2, Palette.ShadowLight);
         DrawTextEx(font, scoreText, scorePos, 40, 2, drawScoreColor);
 
+        // Render multiplier text
         float multiplier = scoreManager.CurrentMultiplier;
         string multText = $"x{multiplier:F1}";
 
         float multLerp = Math.Clamp((multiplier - 1f) / 4f, 0f, 1f);
         Color multColor = ColorLerp(Palette.TextSecondary, Palette.RecordScore, multLerp);
 
+        // Fade out the multiplier text under critical stress
         if (currentStress > 0.75f)
         {
             float burnFactor = (currentStress - 0.75f) / 0.25f;
@@ -139,7 +156,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         }
         else if (multiplier <= 1.01f && currentStress > 0.1f)
         {
-            multColor.A = 100;
+            multColor.A = 100; // Dim when multiplier is at base level
         }
 
         if (multColor.A > 0)
@@ -154,9 +171,9 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             DrawTextEx(font, multText, multPos, 30, 2, multColor);
         }
 
+        // Render pause menu overlay
         if (pauseAlpha > 0f)
         {
-            // Використовуємо колір з палітри для оверлею
             Color overlayColor = Palette.OverlayDark;
             overlayColor.A = (byte)(overlayColor.A * pauseAlpha);
             DrawRectangle(0, 0, screenWidth, screenHeight, overlayColor);
@@ -165,14 +182,14 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             Color textColor = Palette.TextMain.WithAlpha(textAlpha);
             Color hintColor = Palette.TextSecondary.WithAlpha(textAlpha);
 
-            string pauseText = "ПАУЗА";
+            string pauseText = "PAUSED";
             float fontSize = 80f;
             Vector2 textSize = MeasureTextEx(font, pauseText, fontSize, 4f);
             Vector2 textPos = new((screenWidth - textSize.X) / 2f, (screenHeight - textSize.Y) / 2f);
 
             DrawTextEx(font, pauseText, textPos, fontSize, 4f, textColor);
 
-            string hintText = "Натисніть ПРОБІЛ, щоб продовжити";
+            string hintText = "Press SPACE to resume";
             float hintSize = 24f;
             Vector2 hintSizeVec = MeasureTextEx(font, hintText, hintSize, 2f);
             Vector2 hintPos = new((screenWidth - hintSizeVec.X) / 2f, textPos.Y + textSize.Y + 20f);

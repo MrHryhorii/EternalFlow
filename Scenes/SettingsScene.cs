@@ -4,12 +4,16 @@ using EternalFlow.Core;
 
 namespace EternalFlow.Scenes;
 
+/// <summary>
+/// Allows the player to configure screen resolution, fullscreen mode, and master audio volume.
+/// </summary>
 public class SettingsScene : Scene
 {
     private int selectedOption = 0;
 
-    private readonly string[] menuOptions = ["Роздільна здатність", "На весь екран", "Гучність музики", "Назад"];
+    private readonly string[] menuOptions = ["Resolution", "Fullscreen", "Music Volume", "Back"];
 
+    // Static list of supported resolutions
     private static readonly (int width, int height)[] resolutions = [
         (1024, 768),
         (1280, 720),
@@ -34,12 +38,13 @@ public class SettingsScene : Scene
     {
         isFullscreen = Raylib.IsWindowFullscreen();
 
+        // Detect the current resolution index upon entering the scene for the first time
         if (currentResIndex == -1)
         {
             int currentW = Raylib.GetScreenWidth();
             int currentH = Raylib.GetScreenHeight();
 
-            currentResIndex = 1;
+            currentResIndex = 1; // Default to 1280x720 if not found
 
             for (int i = 0; i < resolutions.Length; i++)
             {
@@ -67,12 +72,14 @@ public class SettingsScene : Scene
         colorManager.Update(dummyPath, screenHeight, 0f, deltaTime);
         backgroundShapes.Update(deltaTime);
 
+        // Handle quick exit via Escape key
         if (Raylib.IsKeyPressed(KeyboardKey.Escape))
         {
             game.ChangeScene(new MenuScene(game, font));
             return;
         }
 
+        // Handle vertical navigation
         if (Raylib.IsKeyPressed(KeyboardKey.Up) || Raylib.IsKeyPressed(KeyboardKey.W))
         {
             selectedOption = (selectedOption - 1 + menuOptions.Length) % menuOptions.Length;
@@ -82,7 +89,8 @@ public class SettingsScene : Scene
             selectedOption = (selectedOption + 1) % menuOptions.Length;
         }
 
-        if (selectedOption == 0)
+        // Handle setting adjustments based on the selected option
+        if (selectedOption == 0) // Resolution
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Right) || Raylib.IsKeyPressed(KeyboardKey.D))
             {
@@ -95,7 +103,7 @@ public class SettingsScene : Scene
                 ApplyResolution();
             }
         }
-        else if (selectedOption == 1)
+        else if (selectedOption == 1) // Fullscreen
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.Space) ||
                 Raylib.IsKeyPressed(KeyboardKey.Right) || Raylib.IsKeyPressed(KeyboardKey.Left))
@@ -103,7 +111,7 @@ public class SettingsScene : Scene
                 ToggleFullscreenMode();
             }
         }
-        else if (selectedOption == 2)
+        else if (selectedOption == 2) // Music Volume
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Right) || Raylib.IsKeyPressed(KeyboardKey.D))
             {
@@ -114,7 +122,7 @@ public class SettingsScene : Scene
                 game.Audio.MasterVolume = Math.Max(0.0f, game.Audio.MasterVolume - 0.1f);
             }
         }
-        else if (selectedOption == 3)
+        else if (selectedOption == 3) // Back
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.Space))
             {
@@ -125,6 +133,7 @@ public class SettingsScene : Scene
 
     private void ApplyResolution()
     {
+        // Exit fullscreen before changing resolution to avoid display glitches
         if (Raylib.IsWindowFullscreen())
         {
             Raylib.ToggleFullscreen();
@@ -136,6 +145,7 @@ public class SettingsScene : Scene
 
         Raylib.SetWindowSize(targetWidth, targetHeight);
 
+        // Center the window on the current monitor
         int monitor = Raylib.GetCurrentMonitor();
         int monW = Raylib.GetMonitorWidth(monitor);
         int monH = Raylib.GetMonitorHeight(monitor);
@@ -156,9 +166,9 @@ public class SettingsScene : Scene
         Raylib.ClearBackground(colorManager.BackgroundColor);
         backgroundShapes.Draw(colorManager.CurrentHue, colorManager.CurrentLightness, 0f);
 
-        // ВИКОРИСТОВУЄМО ПАЛІТРУ
-        DrawTextWithShadow("НАЛАШТУВАННЯ", new Vector2(280, 150), 72, 6, Palette.Accent.WithAlpha(220));
+        DrawTextWithShadow("SETTINGS", new Vector2(280, 150), 72, 6, Palette.Accent.WithAlpha(220));
 
+        // Render menu options with current values appended
         for (int i = 0; i < menuOptions.Length; i++)
         {
             Color itemColor = (i == selectedOption) ? Palette.Highlight : Palette.TextSecondary;
@@ -175,7 +185,7 @@ public class SettingsScene : Scene
             }
             else if (i == 1)
             {
-                text += isFullscreen ? ":  < ТАК >" : ":  < НІ >";
+                text += isFullscreen ? ":  < YES >" : ":  < NO >";
             }
             else if (i == 2)
             {
@@ -191,7 +201,7 @@ public class SettingsScene : Scene
             }
         }
 
-        Raylib.DrawTextEx(font, "Вгору/Вниз: Вибір  |  Вліво/Вправо: Зміна  |  ESC: Назад", new Vector2(280, 600), 24, 2, Palette.TextHint);
+        Raylib.DrawTextEx(font, "Up/Down: Select  |  Left/Right: Change  |  ESC: Back", new Vector2(280, 600), 24, 2, Palette.TextHint);
 
         game.DrawTransitionOverlay();
 
