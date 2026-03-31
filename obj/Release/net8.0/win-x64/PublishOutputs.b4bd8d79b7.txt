@@ -1,0 +1,12 @@
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\EternalFlow.pdb
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\fonts\DejaVu Fonts License.txt
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\fonts\DejaVuSans.ttf
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track1.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track2.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track3.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track4.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track5.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track6.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\sound\track7.mp3
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\raylib.dll
+C:\Users\grigo\OneDrive\Documents\HodeKode Projects\EternalFlow\bin\Release\net8.0\win-x64\publish\EternalFlow.exe

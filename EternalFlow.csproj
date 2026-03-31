@@ -1,7 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- Changed to WinExe to hide the developer console window on launch -->
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -12,6 +13,7 @@
     <PackageReference Include="Raylib-cs" Version="7.0.2" />
   </ItemGroup>
 
+  <!-- Automatically copies asset folders to the build directory -->
   <ItemGroup>
     <None Update="fonts\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
