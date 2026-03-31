@@ -2,6 +2,11 @@ using Raylib_cs;
 
 namespace EternalFlow.Core;
 
+/// <summary>
+/// Manages background music playback, seamless crossfading between tracks, 
+/// and real-time audio analysis. Includes a custom DSP Low-Pass Filter 
+/// to create an "underwater" auditory effect when player stress is critical.
+/// </summary>
 public class AudioManager
 {
     private readonly List<string> playlist = [];
@@ -18,13 +23,13 @@ public class AudioManager
 
     public float MasterVolume { get; set; } = 0.5f;
 
+    // Exposes the current volume spike (beat) to other systems like background shapes
     public static float RealtimeAmplitude { get; private set; } = 0f;
 
-    // --- НОВІ ЗМІННІ ДЛЯ DSP ФІЛЬТРА ---
-    // Статична змінна, щоб наш unmanaged колбек міг її читати
+    // Static variables required for the unmanaged audio callback to read filter states
     private static float currentMuffleFactor = 0f;
 
-    // Стан фільтра для лівого та правого каналів (щоб уникнути клацань звуку)
+    // Retains the previous audio sample state to prevent popping/clicking when the filter is active
     private static float filterStateL = 0f;
     private static float filterStateR = 0f;
 
@@ -70,6 +75,7 @@ public class AudioManager
             Raylib.SetMusicVolume(currentTrack, MasterVolume);
             Raylib.PlayMusicStream(currentTrack);
 
+            // Attach a custom processor to intercept raw audio bytes before they reach the speakers
             unsafe
             {
                 Raylib.AttachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);
@@ -87,26 +93,25 @@ public class AudioManager
     {
         if (playlist.Count == 0 || !isAudioReady) return;
 
+        // Streams must be constantly updated to keep the audio buffer filled
         Raylib.UpdateMusicStream(currentTrack);
         if (isCrossfading)
         {
             Raylib.UpdateMusicStream(nextTrack);
         }
 
-        // Вплив ігрового стресу на музику
+        // Increase the track playback speed slightly as stress rises to build tension
         float currentPitch = 1f + (stress * 0.3f);
         Raylib.SetMusicPitch(currentTrack, currentPitch);
         if (isCrossfading) Raylib.SetMusicPitch(nextTrack, currentPitch);
 
-        // --- РОЗРАХУНОК ЕФЕКТУ "ПІД ВОДОЮ" ---
+        // Calculate the intensity of the underwater filter based on critical stress
         if (stress > 0.75f)
         {
-            // Плавно збільшуємо приглушення від 0.0 (на 75% стресу) до 1.0 (на 100%)
             currentMuffleFactor = (stress - 0.75f) / 0.25f;
         }
         else
         {
-            // Якщо стрес впав, повертаємо чистий звук
             currentMuffleFactor = 0f;
         }
 
@@ -118,6 +123,7 @@ public class AudioManager
             Raylib.SetMusicVolume(currentTrack, MasterVolume);
         }
 
+        // Initiate a crossfade when nearing the end of the current track
         if (!isCrossfading && timePlayed >= timeLength - CROSSFADE_DURATION)
         {
             isCrossfading = true;
@@ -144,6 +150,7 @@ public class AudioManager
             }
         }
 
+        // Process the volume mixing during a crossfade transition
         if (isCrossfading)
         {
             crossfadeTimer += deltaTime * currentPitch;
@@ -170,48 +177,50 @@ public class AudioManager
         }
     }
 
+    /// <summary>
+    /// Low-level callback executing directly on Raylib's audio thread.
+    /// Analyzes raw amplitude for visual beats and applies the DSP low-pass filter to muffle audio.
+    /// </summary>
     [System.Runtime.InteropServices.UnmanagedCallersOnly(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     private static unsafe void AudioProcessor(void* bufferData, uint frames)
     {
-        // Перетворюємо void* на вказівник на масив float
         float* samples = (float*)bufferData;
-        int sampleCount = (int)frames * 2; // Лівий і правий канали
+        int sampleCount = (int)frames * 2;
         float maxAmplitude = 0f;
 
-        // Коефіцієнт фільтра (альфа). 
-        // 1.0 = звук проходить без змін. 0.05 = сильне приглушення високих частот.
+        // Determines how much high-frequency sound is allowed to pass through the filter
         float alpha = 1.0f - (currentMuffleFactor * 0.95f);
 
-        // Обробляємо кожен семпл попарно (Лівий, Правий, Лівий, Правий...)
+        // Process each stereo pair
         for (int i = 0; i < sampleCount; i += 2)
         {
             float rawL = samples[i];
             float rawR = samples[i + 1];
 
-            // Обчислюємо амплітуду з ЧИСТОГО звуку
+            // Evaluate the clean audio signal for visual beat detection
             float absL = Math.Abs(rawL);
             float absR = Math.Abs(rawR);
             if (absL > maxAmplitude) maxAmplitude = absL;
             if (absR > maxAmplitude) maxAmplitude = absR;
 
-            // Застосовуємо Low-Pass Filter, якщо стрес високий
+            // Apply the low-pass filter to physically alter the audio bytes in memory
             if (currentMuffleFactor > 0.01f)
             {
                 filterStateL += alpha * (rawL - filterStateL);
                 filterStateR += alpha * (rawR - filterStateR);
 
-                // ЗАПИСУЄМО змінений звук назад у буфер пам'яті звукової карти!
                 samples[i] = filterStateL;
                 samples[i + 1] = filterStateR;
             }
             else
             {
-                // Якщо фільтр вимкнено, оновлюємо стан, щоб не було "клацання" при його увімкненні
+                // Keep the filter state synchronized with the raw audio to prevent popping when activated
                 filterStateL = rawL;
                 filterStateR = rawR;
             }
         }
 
+        // Smooth out the detected amplitude to prevent jittery visual reactions
         RealtimeAmplitude = (RealtimeAmplitude * 0.8f) + (maxAmplitude * 0.2f);
     }
 
