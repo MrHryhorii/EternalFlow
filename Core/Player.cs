@@ -11,6 +11,10 @@ public class Player
     private readonly float baseRadius = 25f;
     private float time = 0f;
 
+    // --- КОНСТАНТИ ПОЗИЦІОНУВАННЯ ---
+    // 0.25f означає, що гравець завжди буде на 25% ширини екрана (від лівого краю)
+    private const float SCREEN_X_RATIO = 0.25f;
+
     // --- АУДІОРЕАКТИВНІ ЗМІННІ ---
     private float previousAmplitude = 0f;
     private float beatCooldown = 0f;
@@ -38,9 +42,10 @@ public class Player
     }
     private readonly List<DustParticle> dustParticles = [];
 
-    public Player(int screenHeight)
+    // ОНОВЛЕНО: Конструктор тепер приймає і ширину екрана
+    public Player(int screenWidth, int screenHeight)
     {
-        Position = new Vector2(100, screenHeight / 2f);
+        Position = new Vector2(screenWidth * SCREEN_X_RATIO, screenHeight / 2f);
     }
 
     public void Update(float deltaTime, float stress)
@@ -105,10 +110,8 @@ public class Player
         if (perfectGlow > 0f)
         {
             // --- НЕЛІНІЙНА КРИВА (Поліном 1.5) ---
-            // Значення росте повільно на початку і стрімко в кінці
             float dustCurve = MathF.Pow(perfectGlow, 1.5f);
 
-            // Випадкова кількість частинок тепер залежить від кривої
             int particlesToSpawn = (int)(dustCurve * 2f);
             if (Random.Shared.NextSingle() < dustCurve) particlesToSpawn++;
 
@@ -207,7 +210,6 @@ public class Player
         // --- МАЛЮЄМО АУРУ ТА ПИЛ ІДЕАЛЬНОГО ПОТОКУ ---
         if (perfectGlow > 0f)
         {
-            // Використовуємо криву для плавності візуалу
             float visualCurve = MathF.Pow(perfectGlow, 1.5f);
 
             Raylib.BeginBlendMode(BlendMode.Additive);
@@ -218,13 +220,11 @@ public class Player
                 float lifeRatio = dust.Life;
                 if (lifeRatio > 1f) lifeRatio = 1f;
 
-                // Максимальна прозорість зменшена зі 180 до 140 для більшої делікатності
                 Color dustColor = new(200, 230, 255, (int)(140 * lifeRatio * visualCurve));
                 Raylib.DrawCircleV(dust.Position, dust.Size, dustColor);
             }
 
             // Ніжне сріблясто-блакитне світіння самої сфери
-            // Значно зменшили базову прозорість для легкості (було 40 і 15)
             Color glowCore = new(200, 230, 255, (int)(25 * visualCurve));
             Color glowOuter = new(150, 200, 255, (int)(8 * visualCurve));
 

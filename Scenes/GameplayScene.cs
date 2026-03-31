@@ -11,7 +11,8 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
     private readonly ColorManager colorManager = new();
     private readonly FloatingShapes backgroundShapes = new(GetScreenWidth(), GetScreenHeight(), 20);
 
-    private readonly Player player = new(GetScreenHeight());
+    // Передаємо GetScreenWidth() і GetScreenHeight()
+    private readonly Player player = new(GetScreenWidth(), GetScreenHeight());
     private readonly PlayerController playerController = new();
     private readonly StressManager stressManager = new();
 
@@ -159,7 +160,6 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             Vector2 multPos = new(screenWidth - multSize.X - 20, 65);
 
             // Тінь для множника (її прозорість залежить від прозорості самого множника)
-            // ВИПРАВЛЕННЯ: використовуємо int замість byte
             int shadowAlpha = (int)(70f * (multColor.A / 255f));
             Color multShadowColor = new(0, 0, 0, shadowAlpha);
 
@@ -202,7 +202,6 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
     private static Color ColorLerp(Color a, Color b, float t)
     {
-        // Всі змінні надійно конвертуються в int
         return new Color(
             (int)(a.R + (b.R - a.R) * t),
             (int)(a.G + (b.G - a.G) * t),
