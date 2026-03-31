@@ -5,19 +5,12 @@ namespace EternalFlow.Core;
 
 public class FloatingShapes
 {
-    // --- КОНСТАНТИ НАЛАШТУВАННЯ ---
-
-    // Шанси кипіння (%) для різних стилів
+    // --- КОНСТАНТИ НАЛАШТУВАННЯ ФІГУР ---
     private const int CHANCE_TO_BOIL_STANDARD = 20;
     private const int CHANCE_TO_BOIL_ASYMMETRIC = 20;
     private const int CHANCE_TO_BOIL_SPIKY = 40;
-
-    // Сила кипіння (амплітуда вібрації). 
-    // 0.05f - легке тремтіння, 0.12f - стандарт, 0.25f - агресивний хаос.
     private const float BOIL_FORCE = 0.05f;
-
     private const int TOTAL_SHAPE_COUNT = 22;
-    // ------------------------------------------
 
     private enum ShapeStyle
     {
@@ -40,10 +33,18 @@ public class FloatingShapes
         public float AsymmetryFactor;
         public float BoilIntensity;
         public bool WillBoil;
+
+        // --- НОВІ ЗМІННІ ДЛЯ "РОЗМОВИ" (БЛИМАННЯ) ---
+        public float FlashIntensity; // Від 0.0 до 1.0 (наскільки яскраво зараз блимає фігура)
+        public float InitialFlashAmp; // Сила біту, який викликав це блимання (щоб сильні біти давали більше збільшення)
     }
 
     private readonly List<FloatingShape> shapes = [];
     private float internalTime = 0f;
+
+    // --- ЗМІННІ ДЛЯ ДЕТЕКТУВАННЯ БІТУ ---
+    private float previousAmplitude = 0f;
+    private float beatCooldown = 0f;
 
     public FloatingShapes(int screenWidth, int screenHeight, int shapeCount = TOTAL_SHAPE_COUNT)
     {
@@ -51,7 +52,6 @@ public class FloatingShapes
         {
             var shape = new FloatingShape
             {
-                // При створенні генеруємо випадкову позицію по всьому екрану
                 Position = new Vector2(Random.Shared.Next(0, screenWidth), Random.Shared.Next(0, screenHeight))
             };
 
@@ -66,25 +66,51 @@ public class FloatingShapes
         int screenWidth = Raylib.GetScreenWidth();
         int screenHeight = Raylib.GetScreenHeight();
 
+        // --- ДЕТЕКТОР БІТУ ДЛЯ ФОНУ ---
+        float currentAmp = AudioManager.RealtimeAmplitude;
+        if (beatCooldown > 0) beatCooldown -= deltaTime;
+
+        // Перевіряємо, чи стався різкий стрибок гучності
+        bool isBeat = currentAmp > 0.3f && currentAmp > previousAmplitude + 0.05f && beatCooldown <= 0f;
+
+        if (isBeat)
+        {
+            beatCooldown = 0.15f; // Кулдаун, щоб фігури не спамили блиманням на одному довгому басі
+
+            // Вибираємо від 1 до 3 випадкових фігур, які будуть "відповідати" на цей біт
+            int shapesToTalk = Random.Shared.Next(1, 4);
+            for (int i = 0; i < shapesToTalk; i++)
+            {
+                int randomIndex = Random.Shared.Next(shapes.Count);
+                shapes[randomIndex].FlashIntensity = 1f; // Запалюємо фігуру
+                shapes[randomIndex].InitialFlashAmp = currentAmp; // Запам'ятовуємо силу музики
+            }
+        }
+        previousAmplitude = currentAmp;
+        // ------------------------------
+
         foreach (var shape in shapes)
         {
             shape.Position.X -= shape.Speed * 60f * deltaTime;
             shape.Rotation += shape.RotSpeed * deltaTime;
 
-            // Якщо фігура вийшла за лівий край екрана
+            // Плавно гасимо блимання з часом
+            if (shape.FlashIntensity > 0)
+            {
+                shape.FlashIntensity -= deltaTime * 3f; // Блимання згасає за третину секунди
+                if (shape.FlashIntensity < 0) shape.FlashIntensity = 0;
+            }
+
+            // Переродження фігури за екраном
             if (shape.Position.X + shape.Radius * 2 < 0)
             {
-                // Перероджуємо її властивості (нова форма, швидкість, колір тощо)
                 ResetShapeParameters(shape);
-
-                // Ставимо її за правий край екрана
                 shape.Position.X = screenWidth + shape.Radius * 2;
                 shape.Position.Y = Random.Shared.Next(0, screenHeight);
             }
         }
     }
 
-    // Новий метод, який генерує "ДНК" фігури
     private static void ResetShapeParameters(FloatingShape shape)
     {
         int sides = Random.Shared.Next(3, 7);
@@ -109,6 +135,9 @@ public class FloatingShapes
         shape.AsymmetryFactor = Random.Shared.NextSingle() * 0.4f + 0.4f;
         shape.BoilIntensity = Random.Shared.NextSingle() * 5f + 10f;
         shape.WillBoil = shouldBoil;
+
+        // Скидаємо блимання при переродженні
+        shape.FlashIntensity = 0f;
     }
 
     public void Draw(float baseHue, float baseLightness, float stress)
@@ -122,8 +151,21 @@ public class FloatingShapes
             float chroma = 0.08f + (stress * 0.15f);
             float lightness = baseLightness - 0.06f - (stress * 0.15f);
 
+            // Базовий колір фігури
             Color shapeColor = ColorConverter.OklchToColor(lightness, chroma, finalHue);
             shapeColor.A = (byte)(70 + stress * 130);
+
+            // --- ЛОГІКА БЛИМАННЯ (РОЗМОВИ) ---
+            if (shape.FlashIntensity > 0)
+            {
+                // Якщо стрес низький — фігури блимають чисто білим.
+                // Чим вищий стрес, тим темнішим стає спалах, доходячи до агресивного чорного.
+                Color targetFlashColor = ColorLerp(Color.White, new Color(15, 15, 15, 255), Math.Clamp(stress * 1.2f, 0f, 1f));
+
+                // Змішуємо базовий колір фігури з кольором спалаху.
+                // Максимальне змішування - 85%, щоб фігура не втрачала свою форму повністю.
+                shapeColor = ColorLerp(shapeColor, targetFlashColor, shape.FlashIntensity * 0.85f);
+            }
 
             DrawMorphingShape(shape, shapeColor, stress, internalTime);
         }
@@ -159,7 +201,6 @@ public class FloatingShapes
     {
         float softBreathing = MathF.Sin(angle * 2f + time * 1.5f) * (shape.Radius * 0.05f);
         float baseR = shape.Radius + softBreathing;
-
         float targetR = baseR;
 
         switch (shape.Style)
@@ -198,7 +239,15 @@ public class FloatingShapes
         if (shape.WillBoil)
         {
             float boilNoise = MathF.Sin(angle * shape.BoilIntensity + time * 20f) * (shape.Radius * BOIL_FORCE * stress);
-            return resultR + boilNoise;
+            resultR += boilNoise;
+        }
+
+        // --- ДОДАЄМО АУДІОПУЛЬС ТА "РОЗМОВУ" ---
+        // Якщо ця конкретна фігура зараз "говорить" (блимає), вона трохи роздувається
+        if (shape.FlashIntensity > 0)
+        {
+            float talkingPulse = shape.FlashIntensity * shape.InitialFlashAmp * 0.4f;
+            resultR *= (1f + talkingPulse);
         }
 
         return resultR;
@@ -208,5 +257,17 @@ public class FloatingShapes
     {
         float segment = MathF.PI * 2f / sides;
         return radius * MathF.Cos(MathF.PI / sides) / MathF.Cos((angle % segment) - (segment / 2f));
+    }
+
+    // Допоміжна функція для плавного змішування кольорів
+    private static Color ColorLerp(Color a, Color b, float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return new Color(
+            (int)(a.R + (b.R - a.R) * t),
+            (int)(a.G + (b.G - a.G) * t),
+            (int)(a.B + (b.B - a.B) * t),
+            (int)(a.A + (b.A - a.A) * t)
+        );
     }
 }

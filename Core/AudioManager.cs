@@ -2,87 +2,83 @@ using Raylib_cs;
 
 namespace EternalFlow.Core;
 
+/// <summary>
+/// Відповідає за фонову музику, плавні переходи (crossfade) та генерацію даних для аудіореактивного візуалу.
+/// Поточна версія оптимізована виключно для Desktop. Від ідеї портування на WebAssembly (WASM) 
+/// відмовилися через жорсткі обмеження браузерів на багатопотоковий доступ до пам'яті (краші при AttachAudioStreamProcessor) 
+/// та проблеми з кешуванням.
+/// </summary>
 public class AudioManager
 {
-    // Список треків тепер динамічний, щоб на десктопі ми могли читати папку
+    // Динамічний список треків. На десктопі ми маємо повний доступ до файлової системи, 
+    // тому просто скануємо папку, замість того щоб жорстко прописувати імена файлів у коді.
     private readonly List<string> playlist = [];
 
-    // Жорстко заданий список ТІЛЬКИ для браузера (WASM)
-    private readonly string[] webFallbackPlaylist = [
-        "sound/track1.mp3",
-        "sound/track2.mp3",
-        "sound/track3.mp3",
-        "sound/track4.mp3",
-        "sound/track5.mp3",
-        "sound/track6.mp3",
-        "sound/track7.mp3"
-    ];
-
     private int currentTrackIndex = 0;
+
+    // Використовуємо Music (потокове читання з диска по шматочках), а не Sound (завантаження всього файлу в оперативку).
+    // Це економить ресурси комп'ютера і є стандартом для довгих фонових треків.
     private Music currentTrack;
     private Music nextTrack;
 
+    // Параметри для плавного переходу (мікшування) між треками
     private bool isCrossfading = false;
     private float crossfadeTimer = 0f;
-    private const float CROSSFADE_DURATION = 3f; // Скільки секунд треки накладаються
+    private const float CROSSFADE_DURATION = 3f; // Скільки секунд два треки грають одночасно під час переходу
 
-    // Прапорець безпеки: чи успішно завантажився поточний трек
+    // Прапорець безпеки. Дозволяє уникнути крашу гри, якщо папка зі звуками порожня або файл пошкоджено.
     private bool isAudioReady = false;
 
-    // --- НАША НОВА ЗМІННА ГУЧНОСТІ ---
-    public float MasterVolume { get; set; } = 0.5f; // Гучність від 0.0 до 1.0 (50% за замовчуванням)
+    // Глобальні налаштування звуку
+    public float MasterVolume { get; set; } = 0.5f;
 
-    // --- СПРАВЖНЯ АМПЛІТУДА МУЗИКИ (від 0.0 до ~1.0) ---
+    // Значення поточної гучності (амплітуди) музики в реальному часі.
+    // Використовується іншими класами (гравцем, фоном) для пульсації в такт.
     public static float RealtimeAmplitude { get; private set; } = 0f;
 
     public AudioManager()
     {
+        // Ініціалізуємо звукову карту перед будь-якими операціями з аудіо
         Raylib.InitAudioDevice();
 
-        // ЗАВАНТАЖУЄМО ПЛЕЙЛИСТ ЗАЛЕЖНО ВІД ПЛАТФОРМИ
         LoadPlaylist();
 
-        // ЯКЩО МУЗИКА ЗНАЙДЕНА — ЗАПУСКАЄМО
-        // Завантажуємо і запускаємо перший трек
+        // Якщо в папці знайшлися треки, беремо випадковий і запускаємо
         if (playlist.Count > 0)
         {
-            currentTrackIndex = Random.Shared.Next(playlist.Count); // Починаємо з випадкового
+            currentTrackIndex = Random.Shared.Next(playlist.Count);
             LoadAndPlayCurrentTrack();
         }
     }
 
+    /// <summary>
+    /// Автоматично знаходить всі .mp3 файли у папці sound і додає їх у плейлист.
+    /// </summary>
     private void LoadPlaylist()
     {
-        // Перевіряємо, чи запущено в браузері (WebAssembly)
-        if (OperatingSystem.IsBrowser())
+        if (Directory.Exists("sound"))
         {
-            // Для вебу просто беремо наш заготовлений масив
-            playlist.AddRange(webFallbackPlaylist);
-        }
-        else
-        {
-            // Для Десктопу: скануємо папку автоматично!
-            if (Directory.Exists("sound"))
-            {
-                // Знаходимо всі mp3 файли у папці
-                playlist.AddRange(Directory.GetFiles("sound", "*.mp3"));
-            }
+            playlist.AddRange(Directory.GetFiles("sound", "*.mp3"));
         }
     }
 
-    // --- МЕТОД ПЕРЕВІРКИ ---
+    /// <summary>
+    /// Перевіряє, чи Raylib зміг коректно прочитати аудіофайл.
+    /// </summary>
     private static bool IsMusicValid(Music music)
     {
-        // Якщо кількість кадрів більше нуля, значить файл існує і Raylib зміг його прочитати
         return music.FrameCount > 0;
     }
 
+    /// <summary>
+    /// Завантажує поточний трек у пам'ять, встановлює гучність і підключає аналізатор ритму.
+    /// </summary>
     private void LoadAndPlayCurrentTrack()
     {
         string trackPath = playlist[currentTrackIndex];
 
-        // Додатковий захист для десктопу: якщо файлу раптом нема, не намагаємося його вантажити
-        if (!OperatingSystem.IsBrowser() && !File.Exists(trackPath))
+        // Додатковий захист: якщо файл раптово видалили під час гри
+        if (!File.Exists(trackPath))
         {
             isAudioReady = false;
             return;
@@ -90,14 +86,13 @@ public class AudioManager
 
         currentTrack = Raylib.LoadMusicStream(trackPath);
 
-        // ГОЛОВНИЙ ФОЛБЕК: Перевіряємо, чи Raylib зміг "проковтнути" цей файл
         if (IsMusicValid(currentTrack))
         {
-            // Одразу ставимо правильну гучність при старті
             Raylib.SetMusicVolume(currentTrack, MasterVolume);
             Raylib.PlayMusicStream(currentTrack);
 
-            // --- ЧІПЛЯЄМО АНАЛІЗАТОР ДО ТРЕКУ ---
+            // Підключаємо наш метод аналізу до аудіопотоку Raylib.
+            // Блок unsafe необхідний, оскільки ми передаємо вказівник на функцію C# у двигун, написаний на C.
             unsafe
             {
                 Raylib.AttachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);
@@ -111,36 +106,35 @@ public class AudioManager
         }
     }
 
+    /// <summary>
+    /// Головний цикл оновлення аудіо. Підтримує відтворення, реагує на стрес гравця та керує переходами.
+    /// </summary>
     public void Update(float stress, float deltaTime)
     {
-        // Якщо плейлист порожній АБО трек не зміг завантажитися — нічого не робимо (гра не крашиться!)
         if (playlist.Count == 0 || !isAudioReady) return;
 
-        // Raylib вимагає постійно оновлювати потік (стримінг)
+        // Потокова музика вимагає постійного оновлення буферів кожен кадр
         Raylib.UpdateMusicStream(currentTrack);
         if (isCrossfading)
         {
             Raylib.UpdateMusicStream(nextTrack);
         }
 
-        // --- ВПЛИВ СТРЕСУ НА МУЗИКУ ---
-        // Якщо стрес 0% -> pitch 1.0 (нормально)
-        // Якщо стрес 100% -> pitch 1.3 (швидше і тривожніше)
+        // Вплив ігрового стресу на музику: чим вищий стрес, тим швидше грає трек (до +30% швидкості)
         float currentPitch = 1f + (stress * 0.3f);
         Raylib.SetMusicPitch(currentTrack, currentPitch);
         if (isCrossfading) Raylib.SetMusicPitch(nextTrack, currentPitch);
 
-        // --- ЛОГІКА ПЕРЕХОДУ (CROSSFADE) ---
         float timePlayed = Raylib.GetMusicTimePlayed(currentTrack);
         float timeLength = Raylib.GetMusicTimeLength(currentTrack);
 
-        // ЯКЩО НЕМАЄ ПЕРЕХОДУ - просто тримаємо поточну гучність (якщо гравець її змінив у налаштуваннях)
+        // Якщо переходу немає, просто підтримуємо майстер-гучність (якщо гравець змінив її в налаштуваннях)
         if (!isCrossfading)
         {
             Raylib.SetMusicVolume(currentTrack, MasterVolume);
         }
 
-        // Якщо до кінця треку залишилося менше CROSSFADE_DURATION секунд і ми ще не переходимо
+        // Тригер початку переходу: коли до кінця треку залишається час, рівний CROSSFADE_DURATION
         if (!isCrossfading && timePlayed >= timeLength - CROSSFADE_DURATION)
         {
             isCrossfading = true;
@@ -152,13 +146,11 @@ public class AudioManager
 
             nextTrack = Raylib.LoadMusicStream(nextTrackPath);
 
-            // Якщо наступний трек битий/не існує, пропускаємо мікшування
             if (IsMusicValid(nextTrack))
             {
                 Raylib.PlayMusicStream(nextTrack);
-                Raylib.SetMusicVolume(nextTrack, 0f); // Починаємо з тиші
+                Raylib.SetMusicVolume(nextTrack, 0f); // Наступний трек починає грати з нульовою гучністю
 
-                // --- ЧІПЛЯЄМО АНАЛІЗАТОР ДО НАСТУПНОГО ТРЕКУ ---
                 unsafe
                 {
                     Raylib.AttachAudioStreamProcessor(nextTrack.Stream, &AudioProcessor);
@@ -166,26 +158,28 @@ public class AudioManager
             }
             else
             {
-                isCrossfading = false; // Скасовуємо перехід, якщо помилка
+                // Якщо наступний трек битий, скасовуємо перехід
+                isCrossfading = false;
             }
         }
 
-        // Сам процес переходу (мікшер)
+        // Процес змішування (Crossfade) двох треків
         if (isCrossfading)
         {
-            // Оскільки pitch прискорює час, додаємо його до deltaTime
+            // pitch впливає на швидкість часу у грі, тому множимо deltaTime на поточну швидкість треку
             crossfadeTimer += deltaTime * currentPitch;
             float t = Math.Clamp(crossfadeTimer / CROSSFADE_DURATION, 0f, 1f);
 
-            // --- МНОЖИМО ПЕРЕХІД НА MASTER VOLUME ---
-            Raylib.SetMusicVolume(currentTrack, (1f - t) * MasterVolume); // Старий затихає
-            Raylib.SetMusicVolume(nextTrack, t * MasterVolume);         // Новий стає гучнішим
+            // Старий трек поступово затихає, новий стає гучнішим
+            Raylib.SetMusicVolume(currentTrack, (1f - t) * MasterVolume);
+            Raylib.SetMusicVolume(nextTrack, t * MasterVolume);
 
+            // Завершення переходу
             if (t >= 1f)
             {
                 isCrossfading = false;
 
-                // --- ВІДЧІПЛЯЄМО АНАЛІЗАТОР ВІД СТАРОГО ТРЕКУ ---
+                // Відключаємо аналізатор від старого треку, щоб уникнути витоку пам'яті
                 unsafe
                 {
                     Raylib.DetachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);
@@ -194,26 +188,30 @@ public class AudioManager
                 Raylib.StopMusicStream(currentTrack);
                 Raylib.UnloadMusicStream(currentTrack);
 
+                // Робимо новий трек основним
                 currentTrack = nextTrack;
-                // Встановлюємо фінальну гучність після завершення переходу
                 Raylib.SetMusicVolume(currentTrack, MasterVolume);
             }
         }
     }
 
-    // Цей метод підключається напряму до аудіорушія
+    /// <summary>
+    /// Низькорівневий колбек, який Raylib викликає автоматично під час обробки аудіобуфера.
+    /// Дозволяє читати сирі байти звуку для визначення гучності (амплітуди) в конкретний момент часу.
+    /// UnmanagedCallersOnly гарантує, що C-двигун зможе безпечно викликати цю C#-функцію.
+    /// </summary>
     [System.Runtime.InteropServices.UnmanagedCallersOnly(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
     private static unsafe void AudioProcessor(void* bufferData, uint frames)
     {
-        // Стерео = 2 канали
+        // Музика стерео (2 канали), тому семплів вдвічі більше за кадри
         int sampleCount = (int)frames * 2;
 
-        // --- Створюємо безпечний Span прямо поверх сирої пам'яті! ---
+        // Створюємо безпечну обгортку над сирою ділянкою пам'яті
         ReadOnlySpan<float> samples = new(bufferData, sampleCount);
 
         float maxAmplitude = 0f;
 
-        // Тепер ми можемо безпечно бігти по колекції (без індексів і вказівників)
+        // Шукаємо найгучніший звук у цьому мікро-фрагменті
         foreach (float sample in samples)
         {
             float currentSample = Math.Abs(sample);
@@ -223,16 +221,17 @@ public class AudioManager
             }
         }
 
-        // Згладжуємо значення
+        // Згладжуємо результат (інтерполяція), щоб візуальні елементи не смикалися надто різко
         RealtimeAmplitude = (RealtimeAmplitude * 0.8f) + (maxAmplitude * 0.2f);
     }
 
-    // Обов'язково треба звільняти пам'ять при виході
+    /// <summary>
+    /// Звільняє всі ресурси звукової карти при закритті гри або сцени.
+    /// </summary>
     public void Unload()
     {
         if (playlist.Count == 0) return;
 
-        // --- ВІДЧІПЛЯЄМО АНАЛІЗАТОРИ ПЕРЕД ВИХОДОМ ---
         unsafe
         {
             if (IsMusicValid(currentTrack)) Raylib.DetachAudioStreamProcessor(currentTrack.Stream, &AudioProcessor);

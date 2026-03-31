@@ -1,5 +1,4 @@
 using Raylib_cs;
-using System;
 
 namespace EternalFlow.Core;
 
@@ -11,9 +10,7 @@ public class ColorManager
     private const float MAX_PHASE_DURATION = 30f;
 
     // Наскільки ріжеться цей час при повному (100%) стресі (0.0 - 1.0)
-    // 0.7f означає, що час скоротиться на 70% (кольори змінюватимуться дуже швидко)
     private const float MAX_STRESS_TIME_REDUCTION = 0.7f;
-    // ------------------------------
 
     public Color BackgroundColor { get; private set; }
     public float CurrentHue { get; private set; }
@@ -27,6 +24,10 @@ public class ColorManager
     private float transitionProgress = 0f;
     private float transitionDuration = 1f;
 
+    // --- ЗМІННІ ДЛЯ ДЕТЕКТУВАННЯ БІТУ ---
+    private float previousAmplitude = 0f;
+    private float beatCooldown = 0f;
+
     public ColorManager()
     {
         CurrentHue = Random.Shared.NextSingle() * 360f;
@@ -35,17 +36,33 @@ public class ColorManager
 
     public void Update(PathGenerator path, int screenHeight, float stress, float deltaTime)
     {
-        // ЛОГІКА СТРИБКІВ ВІДТІНКУ ТА ФАЗИ
+        // --- ДЕТЕКТОР БІТУ ДЛЯ СИНХРОНІЗАЦІЇ ПЕРЕХОДУ ---
+        float currentAmp = AudioManager.RealtimeAmplitude;
+        if (beatCooldown > 0) beatCooldown -= deltaTime;
+
+        // Вважаємо бітом різкий стрибок амплітуди.
+        // Це ідеально спрацює на потужний бас або на різкий вступ нового треку після тиші.
+        bool isBeat = currentAmp > 0.3f && currentAmp > previousAmplitude + 0.05f && beatCooldown <= 0f;
+
+        if (isBeat)
+        {
+            beatCooldown = 0.2f;
+        }
+
+        previousAmplitude = currentAmp;
+
+        // --- ЛОГІКА СТРИБКІВ ВІДТІНКУ ТА ФАЗИ ---
         if (!isTransitioning)
         {
-            // Рахуємо множник швидкості часу.
-            // Якщо reduction = 0.7 і stress = 1, дільник = 0.3. Час для кольору йде в 3.3 рази швидше!
+            // Рахуємо множник швидкості часу залежно від стресу
             float timeMultiplier = 1f / (1f - (stress * MAX_STRESS_TIME_REDUCTION));
 
-            // Таймер спадає плавно, але швидше, якщо стрес високий
+            // Таймер спадає, але якщо він впав нижче нуля - він просто залишається нулем і чекає.
             hueTimer -= deltaTime * timeMultiplier;
+            if (hueTimer < 0) hueTimer = 0;
 
-            if (hueTimer <= 0)
+            // СУПЕР-УМОВА: Перехід починається ТІЛЬКИ якщо таймер вийшов І прямо зараз лунає біт!
+            if (hueTimer <= 0 && isBeat)
             {
                 isTransitioning = true;
                 transitionProgress = 0f;
@@ -71,17 +88,18 @@ public class ColorManager
                 CurrentHue = targetHue % 360f;
                 if (CurrentHue < 0) CurrentHue += 360f;
 
-                // Задаємо новий базовий час фази в межах наших констант
+                // Задаємо новий базовий час для наступної фази
                 hueTimer = Random.Shared.NextSingle() * (MAX_PHASE_DURATION - MIN_PHASE_DURATION) + MIN_PHASE_DURATION;
             }
             else
             {
+                // Плавна інтерполяція (Ease In-Out)
                 float t = transitionProgress * transitionProgress * (3f - 2f * transitionProgress);
                 CurrentHue = startHue + (targetHue - startHue) * t;
             }
         }
 
-        // ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ
+        // --- ПЛАВНА СВІТЛОТА З УРАХУВАННЯМ СТРЕСУ ---
         float pathY = path.GetPathY(100, screenHeight);
         float normalizedY = Math.Clamp(pathY / screenHeight, 0f, 1f);
 
@@ -89,18 +107,17 @@ public class ColorManager
         float targetLightness = 0.92f - (normalizedY * darkeningPower);
         float targetChroma = 0.06f; // Базова насиченість фону
 
-        float lightnessLerpSpeed = 0.15f; // Звичайна розслаблена швидкість зміни
+        float lightnessLerpSpeed = 0.15f;
 
-        // --- ЗАНУРЕННЯ В ТЕМРЯВУ (Стрес > 75%) ---
+        // Занурення в темряву (Стрес > 75%)
         if (stress > 0.75f)
         {
-            float burnFactor = (stress - 0.75f) / 0.25f; // Від 0.0 до 1.0
+            float burnFactor = (stress - 0.75f) / 0.25f;
 
             // Силою тягнемо світлоту та кольоровість до чорного
             targetLightness *= (1f - burnFactor);
             targetChroma *= (1f - burnFactor);
 
-            // Коли ми горимо, темрява має наступати швидко і агресивно
             lightnessLerpSpeed = 2.0f + (burnFactor * 5f);
         }
 
@@ -109,7 +126,6 @@ public class ColorManager
         float finalHue = CurrentHue % 360f;
         if (finalHue < 0) finalHue += 360f;
 
-        // Використовуємо наш targetChroma, який згасає при стресі
         BackgroundColor = ColorConverter.OklchToColor(CurrentLightness, targetChroma, finalHue);
     }
 }
