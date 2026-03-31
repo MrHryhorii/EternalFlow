@@ -115,8 +115,8 @@ public class ColorManager
             float burnFactor = (stress - 0.75f) / 0.25f;
 
             // Силою тягнемо світлоту та кольоровість до чорного
-            targetLightness *= (1f - burnFactor);
-            targetChroma *= (1f - burnFactor);
+            targetLightness *= 1f - burnFactor;
+            targetChroma *= 1f - burnFactor;
 
             lightnessLerpSpeed = 2.0f + (burnFactor * 5f);
         }

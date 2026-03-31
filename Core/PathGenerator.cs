@@ -6,24 +6,20 @@ namespace EternalFlow.Core;
 public class PathGenerator
 {
     // --- КОНСТАНТИ ВСТУПУ ---
-    // Скільки секунд на початку лінія абсолютно пряма
     private const float INTRO_FLAT_DURATION = 3f;
-
-    // Скільки секунд після цього вона плавно розгойдується до максимуму
     private const float INTRO_GROWTH_DURATION = 5f;
-    // ------------------------
 
     private float time = 0f;
-    private readonly float scrollSpeed = 1.5f;
 
-    // Зберігаємо плавний стрес, щоб лінія не розривалася від різких рухів
+    // Швидкість прокрутки світу (пікселів за секунду). 
+    // Це швидкість, з якою "ландшафт" летить на гравця.
+    private readonly float scrollSpeed = 500f;
+
     private float internalStress = 0f;
 
     public void Update(float currentStress, float deltaTime)
     {
-        time += deltaTime * scrollSpeed;
-
-        // Плавно наближаємо внутрішній стрес до цільового
+        time += deltaTime; // Тут time - це просто загальний час гри
         internalStress += (currentStress - internalStress) * deltaTime * 2f;
     }
 
@@ -31,57 +27,59 @@ public class PathGenerator
     {
         float centerY = screenHeight / 2f;
 
-        // ФАЗА ВСТУПУ (Пряма -> Маленькі поштовхи -> Повна крива)
-        // Віднімаємо час "прямої" фази. Якщо результат < 0, то прогрес буде 0.
+        // ГОЛОВНА МАГІЯ ТУТ: globalX - це фізична точка у "світі" гри.
+        // x - це піксель на екрані монітора (від 0 до 1280).
+        // Додаючи time * scrollSpeed, ми змушуємо весь ландшафт єдиним монолітом сунути вліво.
+        float globalX = x + (time * scrollSpeed);
+
+        // ФАЗА ВСТУПУ
         float growthTime = time - INTRO_FLAT_DURATION;
         float introProgress = Math.Clamp(growthTime / INTRO_GROWTH_DURATION, 0f, 1f);
-
-        // Використовуємо SmoothStep для дуже м'якого старту
         float introMultiplier = introProgress * introProgress * (3f - 2f * introProgress);
 
+        // --- МАКРО-ХВИЛЯ (ЗАТЯЖНІ ПІДЙОМИ ТА СПУСКИ) ---
+        // Тепер вона залежить ТІЛЬКИ від globalX. Ти побачиш, як гора насувається з правого краю.
+        float driftFactor = MathF.Sin(globalX * 0.0003f);
+        float driftOffset = driftFactor * (screenHeight * 0.25f) * introMultiplier;
+        float dynamicCenterY = centerY + driftOffset;
+
+        // Коли лінія під стелею або біля землі, ми сплющуємо хвилі, щоб вони не вилізали за екран
+        float edgeDampening = 1f - (Math.Abs(driftFactor) * 0.4f);
+
         // ВПЛИВ СТРЕСУ НА РОЗМАХ
-        // Якщо стресу немає = 1.0 (як зараз). При повному стресі = 2.5 (дуже широкі гойдалки)
         float amplitudeStressMod = 1f + (internalStress * 1.5f);
 
-        // БАЗОВІ ХВИЛІ
-        float wave1 = MathF.Sin((x * 0.0015f) + (time * 0.8f)) * 140f;
-        float wave2 = MathF.Sin((x * 0.004f) + (time * 1.5f)) * 70f;
+        // --- БАЗОВІ ХВИЛІ (УСІ прив'язані до globalX) ---
+        // Оскільки вони використовують тільки globalX, лінія БІЛЬШЕ НЕ ЗМІНЮЄ ФОРМУ по дорозі до тебе!
+        float wave1 = MathF.Sin(globalX * 0.0015f) * 140f;
+        float wave2 = MathF.Sin(globalX * 0.004f) * 70f;
+        float wave3 = MathF.Cos(globalX * 0.007f) * 50f;
 
-        float chaosModulator = MathF.Sin(time * 0.3f) * 0.5f + 0.5f;
-        float wave3 = MathF.Cos((x * 0.007f) + (time * 2.5f)) * (50f * chaosModulator);
-
-        // НЕРВОВА ВІБРАЦІЯ ЛІНІЇ (Тільки при стресі)
-        // Додаємо дрібну "пилку", яка робить маршрут візуально нестабільним
+        // Вібрація (Глітч) при високому стресі. Вона єдина має залежати від time, 
+        // щоб виглядати як ефект "тремтіння камери/енергії", а не як рельєф.
         float noise = MathF.Sin(x * 0.05f - time * 15f) * (15f * internalStress);
 
-        // Збираємо все до купи!
-        float totalWave = (wave1 + wave2 + wave3) * introMultiplier * amplitudeStressMod + noise;
+        // Збираємо весь рельєф до купи
+        float totalWave = (wave1 + wave2 + wave3) * introMultiplier * amplitudeStressMod * edgeDampening + noise;
 
-        return centerY + totalWave;
+        return dynamicCenterY + totalWave;
     }
 
     public void Draw(int screenWidth, int screenHeight, float currentHue, float stress)
     {
         int step = 15;
 
-        // Базові налаштування кольору (залежать від стресу)
         float lightness = 0.98f - (stress * 0.38f);
         float chroma = 0.015f + (stress * 0.135f);
         float alphaFloat = Math.Clamp(160f + (stress * 95f), 0f, 255f);
 
-        // --- ВТРАТА ПОТОКУ (Згасання у темряву) ---
         if (stress > 0.75f)
         {
-            float burnFactor = (stress - 0.75f) / 0.25f; // Від 0.0 до 1.0
+            float burnFactor = (stress - 0.75f) / 0.25f;
 
-            // Силою тягнемо світлоту до нуля (чорний колір)
-            lightness *= (1f - burnFactor);
-
-            // Силою вбиваємо насиченість
-            chroma *= (1f - burnFactor);
-
-            // Плавно робимо лінію майже прозорою (залишаємо привид лінії = 15/255)
-            alphaFloat = alphaFloat - (alphaFloat - 15f) * burnFactor;
+            lightness *= 1f - burnFactor;
+            chroma *= 1f - burnFactor;
+            alphaFloat -= (alphaFloat - 15f) * burnFactor;
         }
 
         float hue = (currentHue + time * 10f) % 360f;
@@ -96,10 +94,8 @@ public class PathGenerator
             float y = GetPathY(x, screenHeight);
             Vector2 currentPoint = new(x, y);
 
-            // Товщина лінії при стресі залишається великою
             float thickness = 6f + (stress * 4f);
 
-            // Малюємо суцільну, але згасаючу лінію
             Raylib.DrawLineEx(prevPoint, currentPoint, thickness, lineColor);
 
             prevPoint = currentPoint;

@@ -247,7 +247,7 @@ public class FloatingShapes
         if (shape.FlashIntensity > 0)
         {
             float talkingPulse = shape.FlashIntensity * shape.InitialFlashAmp * 0.4f;
-            resultR *= (1f + talkingPulse);
+            resultR *= 1f + talkingPulse;
         }
 
         return resultR;
