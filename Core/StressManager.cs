@@ -1,56 +1,58 @@
 namespace EternalFlow.Core;
 
+/// <summary>
+/// Calculates how stressed the player currently is based on their distance from the golden path.
+/// This value dictates the music speed, audio muffling, visual distortions, and score loss.
+/// </summary>
 public class StressManager
 {
-    // Це наш фінальний "реальний" стрес, розрахований математикою
+    // The final smoothed stress value applied globally to all systems
     public float CurrentStress { get; private set; } = 0f;
 
     public void Update(Player player, PathGenerator path, int screenHeight, float deltaTime)
     {
-        // 1. ОТРИМУЄМО КООРДИНАТИ
-        float pathY = path.GetPathY(player.Position.X, screenHeight); // Y маршруту прямо під гравцем
-        float deltaY = pathY - player.Position.Y; // Відстань (позитивна, якщо лінія нижче гравця)
+        // Extract the target Y position of the path directly underneath the player's X coordinate
+        float pathY = path.GetPathY(player.Position.X, screenHeight);
+        float deltaY = pathY - player.Position.Y;
         float absDistance = Math.Abs(deltaY);
 
-        // ЗМІНА 1: Звужуємо зону "смерті".
-        // Тепер 1/3 висоти екрана (напр. 240 пікселів для 720p) - це вже 100% стресу.
-        // AFK-гравець на великій хвилі гарантовано проб'є цю межу.
+        // Define the "death zone". 
+        // Being off the path by 1/3 of the screen height constitutes 100% maximum stress.
         float maxDistance = screenHeight / 3f;
         float normalizedDist = Math.Clamp(absDistance / maxDistance, 0f, 1f);
 
-        // ЗМІНА 2: КВАДРАТИЧНА МАТЕМАТИКА замість кубічної.
-        // normalizedDist = 0.1 (дуже близько) -> 0.1^2 = 0.01 (ідеально, росте множник)
-        // normalizedDist = 0.5 (середньо)     -> 0.5^2 = 0.25 (стрес відчутно росте)
-        // normalizedDist = 0.9 (далеко)       -> 0.9^2 = 0.81 (уже горять очки!)
+        // Use a quadratic curve rather than linear interpolation.
+        // This makes small inaccuracies highly forgiving (e.g., 0.1^2 = 0.01 stress), 
+        // but punishes being moderately far away very severely (e.g., 0.5^2 = 0.25 stress).
         float targetStress = normalizedDist * normalizedDist;
 
-        // 3. БОНУС НАПРЯМКУ (Чи намагається гравець повернутися?)
-        // Якщо напрямок швидкості збігається з напрямком до лінії, і ми рухаємося відчутно швидко
+        // Check if the player is actively trying to correct their mistake.
+        // True if their vertical velocity is strongly directed toward the path.
         bool isMovingTowardsPath = (Math.Sign(player.VelocityY) == Math.Sign(deltaY)) && Math.Abs(player.VelocityY) > 50f;
 
-        // 4. ЕКСПОНЕНЦІАЛЬНИЙ ЧАС (В'язкість стресу)
+        // Apply stress buildup and recovery with different speeds (viscosity)
         if (targetStress > CurrentStress)
         {
-            // СТРЕС ЗРОСТАЄ
-            // Зростає швидше, якщо ти дуже далеко від лінії
+            // Stress builds up faster the further away the player is
             float buildUpSpeed = 1.0f + (targetStress * 2.0f);
             CurrentStress += (targetStress - CurrentStress) * deltaTime * buildUpSpeed;
         }
         else
         {
-            // СТРЕС ПАДАЄ (Гравець заспокоюється)
-            float recoverySpeed = 0.4f; // Базове повільне заспокоєння (треба довго бути на лінії)
+            // Base recovery is slow, requiring the player to stay on the path to calm down
+            float recoverySpeed = 0.4f;
 
-            // Бонус: якщо стрес уже високий (> 0.3), але гравець АКТИВНО летить до лінії
+            // Bonus: If the player was highly stressed but is now actively plunging toward the path,
+            // provide immediate relief to make the control feel responsive and rewarding
             if (CurrentStress > 0.3f && isMovingTowardsPath)
             {
-                recoverySpeed = 2.0f; // Даємо різке полегшення (бонус за правильний ритм)
+                recoverySpeed = 2.0f;
             }
 
             CurrentStress += (targetStress - CurrentStress) * deltaTime * recoverySpeed;
         }
 
-        // Запобіжник
+        // Ensure the global stress value never breaks out of the intended 0.0 - 1.0 range
         CurrentStress = Math.Clamp(CurrentStress, 0f, 1f);
     }
 }

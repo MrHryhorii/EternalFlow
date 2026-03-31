@@ -3,22 +3,26 @@ using System.Numerics;
 
 namespace EternalFlow.Core;
 
-public class Player
+/// <summary>
+/// Represents the player entity (the glowing orb).
+/// Handles its visual representation, the echo trail, and the generation of "Perfect Flow" dust particles.
+/// </summary>
+public class Player(int screenWidth, int screenHeight)
 {
-    public Vector2 Position;
+    public Vector2 Position = new Vector2(screenWidth * SCREEN_X_RATIO, screenHeight / 2f);
     public float VelocityY = 0f;
 
     private readonly float baseRadius = 25f;
     private float time = 0f;
 
-    // --- КОНСТАНТИ ПОЗИЦІОНУВАННЯ ---
-    // 0.25f означає, що гравець завжди буде на 25% ширини екрана (від лівого краю)
+    // Fixes the player horizontally at 25% of the screen width from the left edge.
+    // This provides ample space on the right to see and react to the upcoming path.
     private const float SCREEN_X_RATIO = 0.25f;
 
-    // --- АУДІОРЕАКТИВНІ ЗМІННІ ---
+    // Variables for synchronizing visual pulses and the echo trail with the music
     private float previousAmplitude = 0f;
     private float beatCooldown = 0f;
-    private float fallbackTimer = 0f; // Таймер на випадок, якщо музика дуже тиха
+    private float fallbackTimer = 0f; // Failsafe timer to emit a trail even during very quiet sections
 
     private class TrailEcho
     {
@@ -30,8 +34,8 @@ public class Player
 
     private readonly List<TrailEcho> trail = [];
 
-    // --- НОВІ ЗМІННІ ДЛЯ ІДЕАЛЬНОГО ПОТОКУ ---
-    private float perfectGlow = 0f; // Від 0.0 до 1.0 (наскільки сильно ми в "потоці")
+    // Tracks how deeply the player is immersed in the "Perfect Flow" state (0.0 to 1.0)
+    private float perfectGlow = 0f;
 
     private class DustParticle
     {
@@ -42,22 +46,16 @@ public class Player
     }
     private readonly List<DustParticle> dustParticles = [];
 
-    // ОНОВЛЕНО: Конструктор тепер приймає і ширину екрана
-    public Player(int screenWidth, int screenHeight)
-    {
-        Position = new Vector2(screenWidth * SCREEN_X_RATIO, screenHeight / 2f);
-    }
-
     public void Update(float deltaTime, float stress)
     {
         time += deltaTime;
 
-        // ЧИТАЄМО МУЗИКУ
+        // --- AUDIO REACTIVE TRAIL ---
         float currentAmp = AudioManager.RealtimeAmplitude;
         if (beatCooldown > 0) beatCooldown -= deltaTime;
         fallbackTimer -= deltaTime;
 
-        // ДЕТЕКТОР БІТУ
+        // Detect a musical beat to spawn a major echo ring
         bool isBeat = currentAmp > 0.3f && currentAmp > previousAmplitude + 0.05f && beatCooldown <= 0f;
 
         if (isBeat || fallbackTimer <= 0)
@@ -76,12 +74,13 @@ public class Player
 
         previousAmplitude = currentAmp;
 
-        // ФІЗИКА ШЛЕЙФУ
+        // Update physics for the visual echo trail behind the player
         for (int i = trail.Count - 1; i >= 0; i--)
         {
             trail[i].Life -= deltaTime * 0.6f;
             trail[i].Position.X -= 300f * deltaTime;
 
+            // Rings created during louder beats expand faster
             float expansionSpeed = 10f + (trail[i].InitialAmplitude * 30f);
             trail[i].Radius += deltaTime * expansionSpeed;
 
@@ -91,25 +90,25 @@ public class Player
             }
         }
 
-        // --- ЛОГІКА ІДЕАЛЬНОГО ПОТОКУ (Стрес < 1%) ---
+        // --- PERFECT FLOW STATE LOGIC ---
+        // If stress is virtually zero, gradually increase the aura and dust emission
         if (stress < 0.01f)
         {
-            // Плавна поява
             perfectGlow += deltaTime * 0.6f;
         }
         else
         {
-            // Швидка втрата
+            // Rapidly lose the glow if the player deviates from the center of the path
             perfectGlow -= deltaTime * 1.2f;
         }
 
-        // Тримаємо світіння в межах від 0 до 1
         perfectGlow = Math.Clamp(perfectGlow, 0f, 1f);
 
-        // ГЕНЕРАЦІЯ СРІБНОГО ПИЛУ
+        // --- GENERATE SILVER DUST ---
+        // Dust only appears when the player maintains high accuracy
         if (perfectGlow > 0f)
         {
-            // --- НЕЛІНІЙНА КРИВА (Поліном 1.5) ---
+            // Use a polynomial curve so the dust volume scales exponentially as perfection increases
             float dustCurve = MathF.Pow(perfectGlow, 1.5f);
 
             int particlesToSpawn = (int)(dustCurve * 2f);
@@ -133,7 +132,7 @@ public class Player
             }
         }
 
-        // ФІЗИКА ПИЛУ
+        // Update physics for the silver dust
         for (int i = dustParticles.Count - 1; i >= 0; i--)
         {
             dustParticles[i].Life -= deltaTime;
@@ -146,7 +145,7 @@ public class Player
     {
         float currentAmp = AudioManager.RealtimeAmplitude;
 
-        // --- ГІБРИДНИЙ ПУЛЬС ---
+        // Combine a slow, idle breathing animation with an aggressive audio pulse
         float baseBreathing = MathF.Sin(time * 3f) * 0.05f;
         float audioPulse = currentAmp * 0.4f;
 
@@ -155,7 +154,7 @@ public class Player
         Color coreColor = ColorConverter.OklchToColor(0.98f, 0.02f, 60f);
         Color membraneColor = Color.White;
 
-        // --- МАЛЮЄМО ШЛЕЙФ (ВІДЛУННЯ) ---
+        // Render the echo trail first so it appears underneath the player
         foreach (var echo in trail)
         {
             float alphaMultiplier = 0.5f + (echo.InitialAmplitude * 0.5f);
@@ -171,7 +170,8 @@ public class Player
             Raylib.DrawCircleV(echo.Position, echo.Radius * 0.4f, echoCore);
         }
 
-        // --- ГЛІТЧ ЕФЕКТ ---
+        // --- GLITCH / CHROMATIC ABERRATION EFFECT ---
+        // Activates when stress is dangerously high, making the player orb visually unstable
         float glitchOffset = 0f;
         float verticalJitter = 0f;
 
@@ -189,16 +189,17 @@ public class Player
 
         Vector2 renderPos = new(Position.X, Position.Y + verticalJitter);
 
-        // Хроматична аберація
         if (glitchOffset > 0f)
         {
             Raylib.BeginBlendMode(BlendMode.Additive);
 
+            // Red channel shifted left
             Color rColor = new(255, 30, 30, 180);
             Vector2 rPos = new(renderPos.X - glitchOffset, renderPos.Y);
             Raylib.DrawCircleV(rPos, baseRadius * 0.4f, rColor);
             Raylib.DrawPolyLinesEx(rPos, 40, currentMembraneRadius, 0f, 2.0f, new Color(255, 0, 0, 100));
 
+            // Blue channel shifted right
             Color bColor = new(30, 100, 255, 180);
             Vector2 bPos = new(renderPos.X + glitchOffset, renderPos.Y);
             Raylib.DrawCircleV(bPos, baseRadius * 0.4f, bColor);
@@ -207,14 +208,14 @@ public class Player
             Raylib.EndBlendMode();
         }
 
-        // --- МАЛЮЄМО АУРУ ТА ПИЛ ІДЕАЛЬНОГО ПОТОКУ ---
+        // --- PERFECT FLOW AURA ---
         if (perfectGlow > 0f)
         {
             float visualCurve = MathF.Pow(perfectGlow, 1.5f);
 
             Raylib.BeginBlendMode(BlendMode.Additive);
 
-            // Сяючий пил
+            // Render glowing silver dust
             foreach (var dust in dustParticles)
             {
                 float lifeRatio = dust.Life;
@@ -224,11 +225,10 @@ public class Player
                 Raylib.DrawCircleV(dust.Position, dust.Size, dustColor);
             }
 
-            // Ніжне сріблясто-блакитне світіння самої сфери
+            // Draw a soft, expanding blue-silver aura around the orb
             Color glowCore = new(200, 230, 255, (int)(25 * visualCurve));
             Color glowOuter = new(150, 200, 255, (int)(8 * visualCurve));
 
-            // Світіння трохи "дихає"
             float glowRadiusBoost = MathF.Sin(time * 5f) * 4f;
 
             Raylib.DrawCircleV(renderPos, baseRadius * 1.5f + glowRadiusBoost, glowCore);
@@ -237,7 +237,7 @@ public class Player
             Raylib.EndBlendMode();
         }
 
-        // --- МАЛЮЄМО САМОГО ГРАВЦЯ ---
+        // --- DRAW MAIN ORB ---
         coreColor.A = 200;
         Raylib.DrawCircleV(renderPos, baseRadius * 0.4f, coreColor);
 

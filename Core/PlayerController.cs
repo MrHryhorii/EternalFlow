@@ -2,52 +2,59 @@ using Raylib_cs;
 
 namespace EternalFlow.Core;
 
+/// <summary>
+/// Handles user input and applies smooth, "floaty" physics to the player orb.
+/// The physics are designed to feel like gliding underwater or in zero gravity,
+/// requiring the player to anticipate curves rather than making twitch movements.
+/// </summary>
 public class PlayerController
 {
-    // Нові, набагато "м'якші" налаштування фізики:
-    private readonly float acceleration = 1200f; // Було 2500. Тепер зривається з місця повільніше.
-    private readonly float maxSpeed = 700f;      // Трохи збільшили максималку, щоб компенсувати повільний розгін.
-    private readonly float drag = 3f;            // Було 8. Тепер ковзає значно довше (менше тертя).
-    private readonly float bounceFactor = 0.6f;  // Пружність: зберігає 60% швидкості при відскоку від країв.
+    // Physics parameters tuned for a relaxing, momentum-based feel
+    private readonly float acceleration = 1200f;
+    private readonly float maxSpeed = 700f;
+    private readonly float drag = 3f;            // Low friction means the player glides significantly after releasing a key
+    private readonly float bounceFactor = 0.6f;  // Retains 60% of vertical velocity when bouncing off the screen edges
 
     public void Update(Player player, float deltaTime, int screenHeight)
     {
         float moveInput = 0f;
 
-        // Об'єднуємо кнопки: або W, або Стрілка Вгору
+        // Support both W/S and Up/Down arrow keys
         bool moveUp = Raylib.IsKeyDown(KeyboardKey.W) || Raylib.IsKeyDown(KeyboardKey.Up);
         bool moveDown = Raylib.IsKeyDown(KeyboardKey.S) || Raylib.IsKeyDown(KeyboardKey.Down);
 
         if (moveUp) moveInput -= 1f;
         if (moveDown) moveInput += 1f;
 
-        // Застосовуємо фізику
+        // Apply input-driven acceleration
         if (moveInput != 0f)
         {
-            // Плавний розгін
             player.VelocityY += moveInput * acceleration * deltaTime;
             player.VelocityY = Math.Clamp(player.VelocityY, -maxSpeed, maxSpeed);
         }
         else
         {
-            // Дуже тягуче гальмування
+            // Apply drag to gradually decelerate when no keys are pressed
             player.VelocityY = Lerp(player.VelocityY, 0f, drag * deltaTime);
         }
 
-        // Рухаємо гравця
+        // Update physical position based on velocity
         player.Position.Y += player.VelocityY * deltaTime;
 
-        // ПРУЖНЕ ЗІТКНЕННЯ З КРАЯМИ ЕКРАНУ
-        float padding = 30f; // Розмір мембрани
+        // --- SCREEN BOUNDARY COLLISION ---
+        float padding = 30f;
+
+        // Bounce off the top edge
         if (player.Position.Y < padding)
         {
-            player.Position.Y = padding; // Виштовхуємо, щоб не "прилипав"
-            player.VelocityY = -player.VelocityY * bounceFactor; // Інвертуємо швидкість (відскок вниз)
+            player.Position.Y = padding;
+            player.VelocityY = -player.VelocityY * bounceFactor;
         }
+        // Bounce off the bottom edge
         else if (player.Position.Y > screenHeight - padding)
         {
             player.Position.Y = screenHeight - padding;
-            player.VelocityY = -player.VelocityY * bounceFactor; // Відскок вгору
+            player.VelocityY = -player.VelocityY * bounceFactor;
         }
     }
 
