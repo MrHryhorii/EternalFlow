@@ -25,7 +25,6 @@ public class MenuScene : Scene
         float deltaTime = Raylib.GetFrameTime();
         int screenHeight = Raylib.GetScreenHeight();
 
-        // --- Плавне заспокоєння стресу (і музики) ---
         game.GlobalStress = Math.Max(0f, game.GlobalStress - deltaTime * 0.5f);
 
         dummyPath.Update(0f, deltaTime);
@@ -59,32 +58,36 @@ public class MenuScene : Scene
         Raylib.ClearBackground(colorManager.BackgroundColor);
         backgroundShapes.Draw(colorManager.CurrentHue, colorManager.CurrentLightness, 0f);
 
-        // --- МАЛЮЄМО МЕНЮ ---
-
-        // Заголовок (злегка прозорий)
         Color titleColor = Color.Violet;
-        titleColor.A = 220; // Прозорість 220 з 255
+        titleColor.A = 220;
         DrawTextWithShadow("ETERNAL FLOW", new Vector2(280, 150), 72, 6, titleColor);
 
-        // --- НОВЕ: МАЛЮЄМО РЕКОРД (ЯКЩО ВІН Є) ---
+        // --- МАЛЮЄМО РЕКОРДИ ---
         if (game.HighScore > 0)
         {
             Color goldColor = Color.Gold;
             goldColor.A = 220;
             string scoreText = $"НАЙКРАЩИЙ ПОТІК: {game.HighScore}";
-            // Розміщуємо акуратно під заголовком
             DrawTextWithShadow(scoreText, new Vector2(280, 230), 30, 2, goldColor);
+
+            // Якщо є рекорд часу, малюємо його нижче
+            if (game.BestPerfectFlowTime > 0)
+            {
+                Color cyanColor = Color.Lime;
+                cyanColor.A = 220;
+                TimeSpan time = TimeSpan.FromSeconds(game.BestPerfectFlowTime);
+                string timeText = $"ІДЕАЛЬНИЙ ЧАС: {string.Format("{0:D2}:{1:D2}", time.Minutes, time.Seconds)}";
+                DrawTextWithShadow(timeText, new Vector2(280, 265), 24, 2, cyanColor);
+            }
         }
 
-        // Пункти меню
         for (int i = 0; i < menuOptions.Length; i++)
         {
-            // Активний пункт яскравіший, неактивні - більш прозорі і сірі
             Color itemColor = (i == selectedOption) ? Color.Lime : new Color(200, 200, 200, 255);
             itemColor.A = (byte)((i == selectedOption) ? 220 : 160);
 
             float fontSize = (i == selectedOption) ? 48 : 40;
-            Vector2 position = new(500, 300 + i * 70);
+            Vector2 position = new(500, 320 + i * 70); // Трохи опустив меню, щоб влізли рекорди
 
             DrawTextWithShadow(menuOptions[i], position, fontSize, 2, itemColor);
 
@@ -92,14 +95,13 @@ public class MenuScene : Scene
             {
                 Color cursorColor = Color.Lime;
                 cursorColor.A = 220;
-                DrawTextWithShadow("►", new Vector2(450, 300 + i * 70 + (fontSize == 48 ? 4 : 0)), fontSize, 2, cursorColor);
+                DrawTextWithShadow("►", new Vector2(450, 320 + i * 70 + (fontSize == 48 ? 4 : 0)), fontSize, 2, cursorColor);
             }
         }
 
-        // Підказка (БЕЗ ТІНІ, напівпрозора, щоб не кидалася в очі)
         Color hintColor = Color.DarkGray;
-        hintColor.A = 120; // Робимо її дуже делікатною
-        Raylib.DrawTextEx(font, "Використовуй ↑ ↓ та ENTER", new Vector2(420, 580), 24, 2, hintColor);
+        hintColor.A = 120;
+        Raylib.DrawTextEx(font, "Використовуй ↑ ↓ та ENTER", new Vector2(420, 600), 24, 2, hintColor);
 
         game.DrawTransitionOverlay();
         Raylib.EndDrawing();
@@ -108,8 +110,6 @@ public class MenuScene : Scene
     private void DrawTextWithShadow(string text, Vector2 position, float fontSize, float spacing, Color textColor)
     {
         float shadowOffset = fontSize > 40 ? 3f : 2f;
-
-        // Робимо тінь значно прозорішою (було 150, стало 70)
         Color shadowColor = new(0, 0, 0, 70);
 
         Raylib.DrawTextEx(font, text, new Vector2(position.X + shadowOffset, position.Y + shadowOffset), fontSize, spacing, shadowColor);

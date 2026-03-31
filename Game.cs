@@ -16,6 +16,7 @@ public class Game
     private const float TRANSITION_SPEED = 2.5f;
 
     public int HighScore { get; set; } = 0;
+    public float BestPerfectFlowTime { get; set; } = 0f;
 
     // --- ГЛОБАЛЬНЕ АУДІО ТА СТРЕС ---
     public AudioManager Audio { get; private set; }

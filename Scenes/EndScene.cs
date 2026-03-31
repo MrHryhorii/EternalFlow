@@ -7,27 +7,34 @@ public class EndScene : Scene
 {
     private readonly int peakScore;
     private readonly float timePlayed;
+    private readonly float peakPerfectFlowTime; // Додали змінну
     private float alpha = 0f;
 
-    // ВИКОРИСТОВУЄМО КЛАСИЧНИЙ КОНСТРУКТОР
-    public EndScene(Game game, Font font, int score, float time) : base(game, font)
+    // Оновлений конструктор
+    public EndScene(Game game, Font font, int score, float time, float perfectFlowTime) : base(game, font)
     {
         peakScore = score;
         timePlayed = time;
+        peakPerfectFlowTime = perfectFlowTime;
 
-        // --- ЗБЕРІГАЄМО РЕКОРД ---
+        // --- ЗБЕРІГАЄМО РЕКОРДИ ---
         if (peakScore > game.HighScore)
         {
             game.HighScore = peakScore;
+        }
+
+        // Зберігаємо рекорд ідеального потоку
+        if (peakPerfectFlowTime > game.BestPerfectFlowTime)
+        {
+            game.BestPerfectFlowTime = peakPerfectFlowTime;
         }
     }
 
     public override void Update()
     {
         float deltaTime = Raylib.GetFrameTime();
-        alpha = Math.Clamp(alpha + deltaTime * 0.5f, 0f, 1f); // Плавна поява з темряви
+        alpha = Math.Clamp(alpha + deltaTime * 0.5f, 0f, 1f);
 
-        // --- Плавне заспокоєння стресу (і музики) ---
         game.GlobalStress = Math.Max(0f, game.GlobalStress - deltaTime * 0.5f);
 
         if (alpha >= 1f)
@@ -46,34 +53,35 @@ public class EndScene : Scene
     public override void Draw()
     {
         Raylib.BeginDrawing();
-        Raylib.ClearBackground(new Color(10, 10, 10, 255)); // Майже чорний фон
+        Raylib.ClearBackground(new Color(10, 10, 10, 255));
 
         int screenWidth = Raylib.GetScreenWidth();
         int screenHeight = Raylib.GetScreenHeight();
 
-        // Прозорість для плавного проявлення тексту (використовуємо int для уникнення помилок)
         int textAlpha = (int)(255 * alpha);
         Color textColor = new(255, 255, 255, textAlpha);
         Color accentColor = new(180, 180, 180, textAlpha);
         Color goldColor = new(255, 215, 0, textAlpha);
+        Color cyanColor = new(0, 255, 255, textAlpha); // Колір для часу потоку
 
-        // Заголовок
         string title = "ПОТІК ПЕРЕРВАНО";
         Vector2 titleSize = Raylib.MeasureTextEx(font, title, 60, 2);
         Raylib.DrawTextEx(font, title, new Vector2((screenWidth - titleSize.X) / 2, screenHeight * 0.2f), 60, 2, textColor);
 
-        // Форматуємо час (Хвилини:Секунди)
         TimeSpan time = TimeSpan.FromSeconds(timePlayed);
         string timeString = string.Format("{0:D2}:{1:D2}", time.Minutes, time.Seconds);
 
-        // Статистика
-        DrawCenteredText($"Час у грі: {timeString}", screenHeight * 0.45f, 35, accentColor, screenWidth);
-        DrawCenteredText($"Піковий рахунок: {peakScore}", screenHeight * 0.55f, 50, goldColor, screenWidth);
+        // Форматуємо час ідеального потоку
+        TimeSpan perfectTime = TimeSpan.FromSeconds(peakPerfectFlowTime);
+        string perfectTimeString = string.Format("{0:D2}:{1:D2}", perfectTime.Minutes, perfectTime.Seconds);
 
-        // Підказки
+        // Статистика (змістив трохи вгору, щоб влізло)
+        DrawCenteredText($"Час у грі: {timeString}", screenHeight * 0.40f, 35, accentColor, screenWidth);
+        DrawCenteredText($"Піковий рахунок: {peakScore}", screenHeight * 0.50f, 50, goldColor, screenWidth);
+        DrawCenteredText($"Ідеальний потік: {perfectTimeString}", screenHeight * 0.60f, 35, cyanColor, screenWidth);
+
         if (alpha >= 1f)
         {
-            // Використовуємо int для блимання, щоб уникнути помилок з конструктором Color
             int pulse = (int)(Math.Sin(Raylib.GetTime() * 4f) * 127 + 128);
             Color hintColor = new(150, 150, 150, pulse);
 

@@ -11,26 +11,26 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
     private readonly ColorManager colorManager = new();
     private readonly FloatingShapes backgroundShapes = new(GetScreenWidth(), GetScreenHeight(), 20);
 
-    // Передаємо GetScreenWidth() і GetScreenHeight()
     private readonly Player player = new(GetScreenWidth(), GetScreenHeight());
     private readonly PlayerController playerController = new();
     private readonly StressManager stressManager = new();
 
-    // ПІДКЛЮЧИЛИ МЕНЕДЖЕР РАХУНКУ
     private readonly ScoreManager scoreManager = new();
 
     private bool isPaused = false;
     private float pauseAlpha = 0f;
     private float timeScale = 1f;
 
-    // Змінна для загального часу у грі
     private float totalPlayTime = 0f;
 
     public override void Update()
     {
+        // ЗМІНА: Вихід по ESC тепер також перекидає на EndScene зі збереженням рекорду
         if (IsKeyPressed(KeyboardKey.Escape))
         {
-            game.ChangeScene(new MenuScene(game, font));
+            int currentScore = (int)scoreManager.PeakScore;
+            float perfectTime = scoreManager.PeakPerfectFlowTime;
+            game.ChangeScene(new EndScene(game, font, currentScore, totalPlayTime, perfectTime));
             return;
         }
 
@@ -56,7 +56,6 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         float gameDeltaTime = realDeltaTime * timeScale;
 
-        // Додаємо час гри (тільки коли не на паузі)
         totalPlayTime += gameDeltaTime;
 
         int screenHeight = GetScreenHeight();
@@ -67,15 +66,14 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         game.GlobalStress = currentStress;
 
-        // ОНОВЛЮЄМО РАХУНОК
         scoreManager.Update(currentStress, gameDeltaTime);
 
         // ПЕРЕВІРКА НА ПРОГРАШ
         if (scoreManager.IsGameOver)
         {
-            // Передаємо ПІКОВИЙ рахунок і загальний час на екран результатів
             int finalScore = (int)scoreManager.PeakScore;
-            game.ChangeScene(new EndScene(game, font, finalScore, totalPlayTime));
+            float perfectTime = scoreManager.PeakPerfectFlowTime;
+            game.ChangeScene(new EndScene(game, font, finalScore, totalPlayTime, perfectTime));
             return;
         }
 
@@ -98,13 +96,11 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         path.Draw(screenWidth, screenHeight, colorManager.CurrentHue, currentStress);
         player.Draw(currentStress);
 
-        // Лівий кут - інфо
         DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Color.DarkGray);
         int stressPercent = (int)(currentStress * 100);
         Color stressColor = ColorLerp(Color.Lime, Color.Red, currentStress);
         DrawTextEx(font, $"СТРЕС: {stressPercent}%", new Vector2(20, 70), 30, 2, stressColor);
 
-        // --- ПРАВИЙ КУТ - РАХУНОК ТА МНОЖНИК ---
         int score = (int)scoreManager.CurrentScore;
         string scoreText = $"{score}";
         Vector2 scoreSize = MeasureTextEx(font, scoreText, 40, 2);
@@ -112,36 +108,30 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         Vector2 scorePos = new(screenWidth - scoreSize.X - 20, 20);
         Color drawScoreColor = Color.White;
 
-        // Поступове почервоніння та вібрація від 75% до 100%
         if (currentStress > 0.75f)
         {
-            float burnFactor = (currentStress - 0.75f) / 0.25f; // Перетворюємо в діапазон 0.0 - 1.0
+            float burnFactor = (currentStress - 0.75f) / 0.25f;
 
             drawScoreColor = ColorLerp(Color.White, Color.Red, burnFactor);
 
             int shakeIntensity = (int)(3f * burnFactor);
             if (shakeIntensity > 0)
             {
-                // Вібруємо позицію
                 scorePos.X += Random.Shared.Next(-shakeIntensity, shakeIntensity + 1);
                 scorePos.Y += Random.Shared.Next(-shakeIntensity, shakeIntensity + 1);
             }
         }
 
-        // Малюємо тінь для рахунку (зміщена на 3 пікселі, прозорість 70)
         Color shadowColor = new(0, 0, 0, 70);
         DrawTextEx(font, scoreText, new Vector2(scorePos.X + 3f, scorePos.Y + 3f), 40, 2, shadowColor);
-        // Малюємо сам рахунок
         DrawTextEx(font, scoreText, scorePos, 40, 2, drawScoreColor);
 
-        // --- МНОЖНИК ---
         float multiplier = scoreManager.CurrentMultiplier;
         string multText = $"x{multiplier:F1}";
 
         float multLerp = Math.Clamp((multiplier - 1f) / 4f, 0f, 1f);
         Color multColor = ColorLerp(Color.LightGray, Color.Gold, multLerp);
 
-        // РАЗОМ З ПОЧЕРВОНІННЯМ РАХУНКУ - РОЗЧИНЯЄМО МНОЖНИК
         if (currentStress > 0.75f)
         {
             float burnFactor = (currentStress - 0.75f) / 0.25f;
@@ -153,23 +143,18 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             multColor.A = 100;
         }
 
-        // Малюємо множник, ТІЛЬКИ якщо він хоч трохи видимий
         if (multColor.A > 0)
         {
             Vector2 multSize = MeasureTextEx(font, multText, 30, 2);
             Vector2 multPos = new(screenWidth - multSize.X - 20, 65);
 
-            // Тінь для множника (її прозорість залежить від прозорості самого множника)
             int shadowAlpha = (int)(70f * (multColor.A / 255f));
             Color multShadowColor = new(0, 0, 0, shadowAlpha);
 
-            // Малюємо тінь множника
             DrawTextEx(font, multText, new Vector2(multPos.X + 2f, multPos.Y + 2f), 30, 2, multShadowColor);
-            // Малюємо сам текст множника
             DrawTextEx(font, multText, multPos, 30, 2, multColor);
         }
 
-        // Пауза
         if (pauseAlpha > 0f)
         {
             int overlayAlpha = (int)(120 * pauseAlpha);
@@ -194,7 +179,6 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             DrawTextEx(font, hintText, hintPos, hintSize, 2f, hintColor);
         }
 
-        // Перехід між сценами
         game.DrawTransitionOverlay();
 
         EndDrawing();
