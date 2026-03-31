@@ -1,0 +1,1 @@
+Linux users: Don't forget to give the file execution permissions before running. Open terminal in the game folder and type: chmod +x EternalFlow
