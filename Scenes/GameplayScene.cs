@@ -25,7 +25,6 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
     public override void Update()
     {
-        // ЗМІНА: Вихід по ESC тепер також перекидає на EndScene зі збереженням рекорду
         if (IsKeyPressed(KeyboardKey.Escape))
         {
             int currentScore = (int)scoreManager.PeakScore;
@@ -68,7 +67,6 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         scoreManager.Update(currentStress, gameDeltaTime);
 
-        // ПЕРЕВІРКА НА ПРОГРАШ
         if (scoreManager.IsGameOver)
         {
             int finalScore = (int)scoreManager.PeakScore;
@@ -96,9 +94,11 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         path.Draw(screenWidth, screenHeight, colorManager.CurrentHue, currentStress);
         player.Draw(currentStress);
 
-        DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Color.DarkGray);
+        // ВИКОРИСТОВУЄМО ПАЛІТРУ
+        DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Palette.TextHint);
+
         int stressPercent = (int)(currentStress * 100);
-        Color stressColor = ColorLerp(Color.Lime, Color.Red, currentStress);
+        Color stressColor = ColorLerp(Palette.Highlight, Palette.Danger, currentStress);
         DrawTextEx(font, $"СТРЕС: {stressPercent}%", new Vector2(20, 70), 30, 2, stressColor);
 
         int score = (int)scoreManager.CurrentScore;
@@ -106,13 +106,13 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         Vector2 scoreSize = MeasureTextEx(font, scoreText, 40, 2);
 
         Vector2 scorePos = new(screenWidth - scoreSize.X - 20, 20);
-        Color drawScoreColor = Color.White;
+        Color drawScoreColor = Palette.TextMain;
 
         if (currentStress > 0.75f)
         {
             float burnFactor = (currentStress - 0.75f) / 0.25f;
 
-            drawScoreColor = ColorLerp(Color.White, Color.Red, burnFactor);
+            drawScoreColor = ColorLerp(Palette.TextMain, Palette.Danger, burnFactor);
 
             int shakeIntensity = (int)(3f * burnFactor);
             if (shakeIntensity > 0)
@@ -122,15 +122,14 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             }
         }
 
-        Color shadowColor = new(0, 0, 0, 70);
-        DrawTextEx(font, scoreText, new Vector2(scorePos.X + 3f, scorePos.Y + 3f), 40, 2, shadowColor);
+        DrawTextEx(font, scoreText, new Vector2(scorePos.X + 3f, scorePos.Y + 3f), 40, 2, Palette.ShadowLight);
         DrawTextEx(font, scoreText, scorePos, 40, 2, drawScoreColor);
 
         float multiplier = scoreManager.CurrentMultiplier;
         string multText = $"x{multiplier:F1}";
 
         float multLerp = Math.Clamp((multiplier - 1f) / 4f, 0f, 1f);
-        Color multColor = ColorLerp(Color.LightGray, Color.Gold, multLerp);
+        Color multColor = ColorLerp(Palette.TextSecondary, Palette.RecordScore, multLerp);
 
         if (currentStress > 0.75f)
         {
@@ -157,12 +156,14 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         if (pauseAlpha > 0f)
         {
-            int overlayAlpha = (int)(120 * pauseAlpha);
-            DrawRectangle(0, 0, screenWidth, screenHeight, new Color(0, 0, 0, overlayAlpha));
+            // Використовуємо колір з палітри для оверлею
+            Color overlayColor = Palette.OverlayDark;
+            overlayColor.A = (byte)(overlayColor.A * pauseAlpha);
+            DrawRectangle(0, 0, screenWidth, screenHeight, overlayColor);
 
-            int textAlpha = (int)(255 * pauseAlpha);
-            Color textColor = new(255, 255, 255, textAlpha);
-            Color hintColor = new(200, 200, 200, textAlpha);
+            byte textAlpha = (byte)(255 * pauseAlpha);
+            Color textColor = Palette.TextMain.WithAlpha(textAlpha);
+            Color hintColor = Palette.TextSecondary.WithAlpha(textAlpha);
 
             string pauseText = "ПАУЗА";
             float fontSize = 80f;
