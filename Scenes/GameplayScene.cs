@@ -81,7 +81,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         path.Update(currentStress, gameDeltaTime);
         colorManager.Update(path, screenHeight, currentStress, gameDeltaTime);
         backgroundShapes.Update(gameDeltaTime);
-        player.Update(gameDeltaTime);
+        player.Update(gameDeltaTime, currentStress);
     }
 
     public override void Draw()
@@ -95,7 +95,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
 
         backgroundShapes.Draw(colorManager.CurrentHue, colorManager.CurrentLightness, currentStress);
         path.Draw(screenWidth, screenHeight, colorManager.CurrentHue, currentStress);
-        player.Draw();
+        player.Draw(currentStress);
 
         // Лівий кут - інфо
         DrawTextEx(font, "ВІЧНИЙ ПОТІК", new Vector2(20, 20), 40, 2, Color.DarkGray);
@@ -128,7 +128,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
         }
 
         // Малюємо тінь для рахунку (зміщена на 3 пікселі, прозорість 70)
-        Color shadowColor = new Color(0, 0, 0, 70);
+        Color shadowColor = new(0, 0, 0, 70);
         DrawTextEx(font, scoreText, new Vector2(scorePos.X + 3f, scorePos.Y + 3f), 40, 2, shadowColor);
         // Малюємо сам рахунок
         DrawTextEx(font, scoreText, scorePos, 40, 2, drawScoreColor);
@@ -161,7 +161,7 @@ public class GameplayScene(Game game, Font font) : Scene(game, font)
             // Тінь для множника (її прозорість залежить від прозорості самого множника)
             // ВИПРАВЛЕННЯ: використовуємо int замість byte
             int shadowAlpha = (int)(70f * (multColor.A / 255f));
-            Color multShadowColor = new Color(0, 0, 0, shadowAlpha);
+            Color multShadowColor = new(0, 0, 0, shadowAlpha);
 
             // Малюємо тінь множника
             DrawTextEx(font, multText, new Vector2(multPos.X + 2f, multPos.Y + 2f), 30, 2, multShadowColor);

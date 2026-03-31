@@ -10,15 +10,24 @@ public class SettingsScene : Scene
 
     private readonly string[] menuOptions = ["Роздільна здатність", "На весь екран", "Гучність музики", "Назад"];
 
-    // Варіанти роздільної здатності
-    private readonly (int width, int height)[] resolutions = [
-        (1280, 720),
-        (1600, 900),
-        (1920, 1080),
-        (2560, 1440)
+    // --- РОБИМО МАСИВ ТА ІНДЕКС СТАТИЧНИМИ ---
+    // Тепер вони не будуть стиратися при виході в головне меню
+    private static readonly (int width, int height)[] resolutions = [
+        (1024, 768),   // 4:3
+        (1280, 720),   // 16:9
+        (1280, 800),   // 16:10
+        (1440, 900),   // 16:10
+        (1600, 900),   // 16:9
+        (1680, 1050),  // 16:10
+        (1920, 1080),  // 16:9
+        (1920, 1200),  // 16:10
+        (2560, 1440),  // 16:9
+        (2560, 1600)   // 16:10
     ];
 
-    private int currentResIndex = 0;
+    // Значення -1 означає, що гра щойно запущена і ми ще не зберігали вибір
+    private static int currentResIndex = -1;
+
     private bool isFullscreen;
 
     // --- Елементи для живого фону ---
@@ -30,15 +39,22 @@ public class SettingsScene : Scene
     {
         isFullscreen = Raylib.IsWindowFullscreen();
 
-        int currentW = Raylib.GetScreenWidth();
-        int currentH = Raylib.GetScreenHeight();
-
-        for (int i = 0; i < resolutions.Length; i++)
+        // Знаходимо поточний індекс ТІЛЬКИ при першому вході в налаштування
+        if (currentResIndex == -1)
         {
-            if (resolutions[i].width == currentW && resolutions[i].height == currentH)
+            int currentW = Raylib.GetScreenWidth();
+            int currentH = Raylib.GetScreenHeight();
+
+            // За замовчуванням 1280x720 (індекс 1), якщо розмір екрана нестандартний
+            currentResIndex = 1;
+
+            for (int i = 0; i < resolutions.Length; i++)
             {
-                currentResIndex = i;
-                break;
+                if (resolutions[i].width == currentW && resolutions[i].height == currentH)
+                {
+                    currentResIndex = i;
+                    break;
+                }
             }
         }
 
@@ -106,12 +122,10 @@ public class SettingsScene : Scene
         {
             if (Raylib.IsKeyPressed(KeyboardKey.Right) || Raylib.IsKeyPressed(KeyboardKey.D))
             {
-                // Збільшуємо гучність на 10% (0.1f), але не більше ніж 100% (1.0f)
                 game.Audio.MasterVolume = Math.Min(1.0f, game.Audio.MasterVolume + 0.1f);
             }
             if (Raylib.IsKeyPressed(KeyboardKey.Left) || Raylib.IsKeyPressed(KeyboardKey.A))
             {
-                // Зменшуємо гучність на 10%, але не менше ніж 0% (0.0f)
                 game.Audio.MasterVolume = Math.Max(0.0f, game.Audio.MasterVolume - 0.1f);
             }
         }
@@ -180,9 +194,8 @@ public class SettingsScene : Scene
             }
             else if (i == 1)
             {
-                text += isFullscreen ? ":  [ ТАК ]" : ":  [ НІ ]";
+                text += isFullscreen ? ":  < ТАК >" : ":  < НІ >";
             }
-            // Додано малювання відсотків гучності
             else if (i == 2)
             {
                 int volumePercent = (int)Math.Round(game.Audio.MasterVolume * 100);
@@ -202,7 +215,6 @@ public class SettingsScene : Scene
         // ПІДКАЗКА (БЕЗ ТІНІ)
         Color hintColor = Color.DarkGray;
         hintColor.A = 120;
-        // Додав інформацію про ESC
         Raylib.DrawTextEx(font, "Вгору/Вниз: Вибір  |  Вліво/Вправо: Зміна  |  ESC: Назад", new Vector2(280, 600), 24, 2, hintColor);
 
         // ПЛАВНИЙ ПЕРЕХІД
@@ -211,7 +223,6 @@ public class SettingsScene : Scene
         Raylib.EndDrawing();
     }
 
-    // Той самий метод для тіней, що і в MenuScene
     private void DrawTextWithShadow(string text, Vector2 position, float fontSize, float spacing, Color textColor)
     {
         float shadowOffset = fontSize > 40 ? 3f : 2f;
