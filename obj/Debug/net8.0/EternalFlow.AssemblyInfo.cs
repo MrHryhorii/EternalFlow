@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EternalFlow")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fa69b791e5fa410d0ddf204826f94d04f246036f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7b1ed687db7bd1885cd36dd1c28eeb0853c1614e")]
 [assembly: System.Reflection.AssemblyProductAttribute("EternalFlow")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EternalFlow")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

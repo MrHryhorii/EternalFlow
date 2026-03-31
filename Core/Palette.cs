@@ -3,49 +3,56 @@ using Raylib_cs;
 namespace EternalFlow.Core;
 
 /// <summary>
-/// Глобальна кольорова палітра для інтерфейсу та тексту.
-/// Використовує "кремові" (пастельно-неонові) відтінки для приємного контрасту.
+/// A centralized color palette for all UI elements and text.
+/// Uses soft, creamy neo-pastel colors to reduce eye strain and maintain a cohesive, calming art style.
 /// </summary>
 public static class Palette
 {
-    // --- ОСНОВНІ КОЛЬОРИ ТЕКСТУ ---
-    // Теплий, м'який білий
+    // --- MAIN TEXT COLORS ---
+    // Warm, soft off-white for primary readable text to avoid the harsh glare of pure white
     public static readonly Color TextMain = new(245, 245, 240, 255);
 
-    // Світлий сіро-бежевий для неактивних пунктів
+    // Light grey-beige for inactive menu options and secondary information
     public static readonly Color TextSecondary = new(190, 190, 195, 255);
 
-    // Напівпрозорий для підказок
+    // Semi-transparent color for non-intrusive hints and control instructions
     public static readonly Color TextHint = new(150, 150, 150, 120);
 
-    // --- КОЛЬОРИ СТАНІВ ТА ВИДІЛЕННЯ ---
-    // Кремовий м'ятний
+    // --- STATE AND HIGHLIGHT COLORS ---
+    // Soft mint green used to indicate positive actions, active menu cursors, and low stress
     public static readonly Color Highlight = new(140, 240, 170, 255);
 
-    // М'який лавандовий
+    // Soft lavender for primary titles and game branding
     public static readonly Color Accent = new(190, 150, 255, 255);
 
-    // Кремовий персиковий
+    // Creamy peach to warn the player of rising stress levels before things get critical
     public static readonly Color Warning = new(255, 180, 130, 255);
 
-    // М'який кораловий/кавуновий
+    // Soft coral/watermelon red for critical stress, errors, and the breaking of the flow
     public static readonly Color Danger = new(250, 110, 120, 255);
 
-    // --- КОЛЬОРИ РЕКОРДІВ ТА ДОСЯГНЕНЬ ---
-    // М'яке, тепле золото
+    // --- RECORD AND ACHIEVEMENT COLORS ---
+    // Warm gold specifically reserved for High Score displays
     public static readonly Color RecordScore = new(250, 210, 110, 255);
 
-    // Кремовий аква/ціан
+    // Soft cyan/aqua specifically reserved for Perfect Flow Time displays
     public static readonly Color RecordFlow = new(120, 230, 250, 255);
 
-    // --- ТІНІ ТА ЗАТЕМНЕННЯ ---
-    public static readonly Color ShadowLight = new(0, 0, 0, 70);         // Легка тінь тексту
-    public static readonly Color ShadowDark = new(0, 0, 0, 150);         // Глибока тінь
-    public static readonly Color OverlayDark = new(0, 0, 0, 120);        // Напівпрозорий фон для паузи
-    public static readonly Color BackgroundDark = new(15, 15, 18, 255);  // Глибокий, ледь синюватий чорний фон (EndScene)
+    // --- SHADOWS AND OVERLAYS ---
+    // Subtle drop shadow to detach floating text from the background
+    public static readonly Color ShadowLight = new(0, 0, 0, 70);
+
+    // Deep shadow for elements that need strong contrast to remain readable
+    public static readonly Color ShadowDark = new(0, 0, 0, 150);
+
+    // Dark transparent overlay used to dim the screen during the pause menu
+    public static readonly Color OverlayDark = new(0, 0, 0, 120);
+
+    // Deep, slightly bluish black for dead-state backgrounds (like the End Scene)
+    public static readonly Color BackgroundDark = new(15, 15, 18, 255);
 
     /// <summary>
-    /// Допоміжний метод: повертає колір із заданою прозорістю (Alpha)
+    /// Helper extension method to quickly create a copy of a palette color with a specific transparency (Alpha).
     /// </summary>
     public static Color WithAlpha(this Color color, byte alpha)
     {
